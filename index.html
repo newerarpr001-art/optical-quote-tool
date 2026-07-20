@@ -1,0 +1,3642 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>光学系選定ツール</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%232D6FF7'/%3E%3Ccircle cx='12' cy='12' r='6' fill='%23FFFFFF'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23FF6B5E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F7FE;
+    --bg-grid: rgba(45,111,247,0.045);
+    --panel:#FFFFFF;
+    --panel-2:#F4F7FE;
+    --border: #E3EAFB;
+    --border-strong: #CBD9F6;
+    --text:#27324B;
+    --text-dim:#6C7A99;
+    --text-faint:#9AA8C4;
+    --cyan:#2D6FF7;              /* メインアクセント（ブルー） */
+    --cyan-dim: rgba(45,111,247,0.10);
+    --brass:#FF6B5E;             /* サブアクセント（コーラル） */
+    --brass-dim: rgba(255,107,94,0.12);
+    --green:#1E9E5F;
+    --green-dim: #E5F8EE;
+    --red:#E0483B;
+    --red-dim: #FDEBE9;
+    --radius: 14px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Zen Kaku Gothic New', -apple-system, "Hiragino Sans", sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); }
+  body{
+    font-family: var(--sans);
+    color: var(--text);
+    background-image:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-color: var(--bg);
+    min-height:100vh;
+    letter-spacing: 0.01em;
+  }
+  .app{ display:flex; min-height:100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width: 216px; flex-shrink:0;
+    background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    display:flex; flex-direction:column; gap:26px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding: 0 6px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:8px;
+    background: conic-gradient(from 210deg, var(--cyan), var(--brass), var(--cyan));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 0 1px rgba(45,111,247,0.15) inset, 0 6px 18px rgba(45,111,247,0.18);
+    position:relative;
+  }
+  .brand-mark::after{
+    content:""; position:absolute; inset:3px; border-radius:6px; background:#FFFFFF;
+  }
+  .brand-mark svg{ position:relative; z-index:1; width:16px; height:16px; }
+  .brand-name{ font-weight:700; font-size:14.5px; letter-spacing:0.01em; line-height:1.25; }
+  .brand-sub{ font-family: var(--mono); font-size:9.5px; color:var(--text-faint); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+
+  .nav{ display:flex; flex-direction:column; gap:3px; }
+  .nav-label{ font-family: var(--mono); font-size:9.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.12em; padding: 0 10px 6px; margin-top: 6px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding: 10px 10px; border-radius:8px; cursor:pointer;
+    color:var(--text-dim); font-size:13px; font-weight:500;
+    border:1px solid transparent;
+    transition: all .15s ease;
+  }
+  .nav-item svg{ width:16px; height:16px; flex-shrink:0; opacity:0.85; }
+  .nav-item:hover{ background: rgba(45,111,247,0.06); color:var(--text); }
+  .nav-item.active{
+    background: var(--cyan-dim); color:#1D4FC0; border-color: rgba(45,111,247,0.30);
+  }
+  .nav-item.active svg{ opacity:1; }
+  .nav-count{
+    margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--text-faint);
+    background: rgba(45,111,247,0.08); padding:1px 6px; border-radius:20px;
+  }
+
+  .sidebar-foot{ margin-top:auto; padding: 10px; border-top:1px solid var(--border); }
+  .sidebar-foot .tag{
+    font-family: var(--mono); font-size:9.5px; color:var(--brass); letter-spacing:0.08em;
+    background: var(--brass-dim); border:1px solid rgba(214,167,86,0.3);
+    padding:4px 8px; border-radius:5px; display:inline-block;
+  }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{
+    display:flex; align-items:center; gap:16px;
+    padding: 16px 26px; border-bottom:1px solid var(--border);
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+    position: sticky; top:0; z-index:5;
+  }
+  .topbar h1{ font-size:16.5px; font-weight:700; letter-spacing:0.01em; }
+  .topbar .desc{ font-size:11.5px; color:var(--text-dim); margin-top:2px; }
+  .topbar-spacer{ flex:1; }
+  .field-inline{ display:flex; flex-direction:column; gap:3px; }
+  .field-inline label{ font-family:var(--mono); font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.08em; }
+  .project-input{
+    width:220px; background: var(--panel-2); border:1px solid var(--border);
+    border-radius:7px; color:var(--text); font-size:12.5px; padding:7px 10px; outline:none;
+    font-family: var(--sans);
+  }
+  .project-input:focus{ border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:var(--sans); font-size:12.5px; font-weight:700; cursor:pointer;
+    padding: 8px 14px; border-radius:7px; border:1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text);
+    transition: all .15s ease;
+  }
+  .btn:hover{ border-color: var(--cyan); color:#1D4FC0; }
+  .btn.primary{
+    background: linear-gradient(135deg, #4A85FF, #2D6FF7);
+    color:#FFFFFF; border-color: transparent; box-shadow: 0 4px 14px rgba(45,111,247,0.30);
+  }
+  .btn.primary:hover{ filter: brightness(1.05); color:#FFFFFF; }
+  .btn svg{ width:14px; height:14px; }
+
+  .content{ padding: 22px 26px 60px; max-width: 1220px; }
+  .wf-banner{
+    display:flex; align-items:center; gap:10px;
+    font-family: var(--mono); font-size:11px; color: var(--brass);
+    background: var(--brass-dim); border:1px solid rgba(214,167,86,0.3);
+    padding:9px 14px; border-radius:8px; margin-bottom:20px;
+  }
+
+  .grid-2{ display:grid; grid-template-columns: 380px 1fr; gap:16px; align-items:stretch; }
+  @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
+
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .card-head .eyebrow{
+    font-family: var(--mono); font-size:10px; color: var(--cyan);
+    text-transform:uppercase; letter-spacing:0.1em; margin-bottom:3px;
+  }
+  .card-head h2{ font-size:14.5px; font-weight:700; }
+
+  /* ---------- Input form ---------- */
+  .form-row{ margin-bottom:14px; }
+  .form-row label{
+    display:block; font-size:11.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500;
+  }
+  .form-row .unit{ color:var(--text-faint); font-family: var(--mono); font-size:10.5px; }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  input[type=number], select{
+    width:100%; background: var(--panel-2); border:1px solid var(--border);
+    border-radius:7px; color:var(--text); font-family: var(--mono); font-size:13.5px;
+    padding:9px 11px; outline:none;
+  }
+  select{ font-family: var(--sans); font-size:12.5px; appearance:none; cursor:pointer;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0L5 6L10 0Z" fill="%238A93A3"/></svg>');
+    background-repeat:no-repeat; background-position: right 12px center; padding-right:28px;
+  }
+  input:focus, select:focus{ border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  select:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .segmented{ display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .segmented button{
+    flex:1; background: var(--panel-2); border:none; color:var(--text-dim);
+    font-family: var(--sans); font-size:11.5px; font-weight:600; padding:8px 6px; cursor:pointer;
+    border-right:1px solid var(--border);
+  }
+  .segmented button:last-child{ border-right:none; }
+  .segmented button.active{ background: var(--cyan-dim); color:#1D4FC0; }
+
+  .calc-btn{
+    width:100%; margin-top:6px; padding:11px; border-radius:8px; border:none;
+    background: linear-gradient(135deg, #FF7A6E, #F55A4C); color:#FFFFFF;
+    font-family: var(--sans); font-weight:800; font-size:13.5px; cursor:pointer;
+    box-shadow: 0 4px 0 #D8402F, 0 8px 20px rgba(255,107,94,0.28);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .calc-btn:hover{ filter:brightness(1.06); }
+
+  /* ---------- Diagram ---------- */
+  .diagram-card{ display:flex; flex-direction:column; }
+  #rayHost{ flex:1; display:flex; align-items:center; justify-content:center; min-height: 210px; }
+  .diagram-legend{ display:flex; gap:16px; margin-top:10px; flex-wrap:wrap; }
+  .diagram-legend span{ display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-dim); font-family: var(--mono); }
+  .diagram-legend i{ width:12px; height:2px; display:inline-block; border-radius:2px; }
+
+  /* ---------- Readout ---------- */
+  .readout-card{ margin-top:16px; }
+  .readout-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:1px; background: var(--border); border-radius:8px; overflow:hidden; border:1px solid var(--border); }
+  .readout{ background: var(--panel-2); padding:16px 14px; }
+  .readout .k{ font-family: var(--mono); font-size:9.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.08em; }
+  .readout .v{ font-family: var(--mono); font-size:24px; font-weight:700; color:var(--text); margin-top:6px; letter-spacing:-0.01em; }
+  .readout .v.accent{ color: var(--cyan); }
+  .readout .v .unit{ font-size:12px; color:var(--text-dim); font-weight:500; margin-left:3px; }
+  @media (max-width: 780px){ .readout-grid{ grid-template-columns: repeat(2,1fr); } }
+
+  /* ---------- Candidate table ---------- */
+  .table-card{ margin-top:16px; }
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    text-align:left; font-family: var(--mono); font-size:9.5px; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:0.07em; padding:9px 12px; border-bottom:1px solid var(--border);
+  }
+  td{ padding:12px; border-bottom:1px solid #EDF2FC; font-size:12.5px; vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  tr.row-hover:hover{ background: rgba(45,111,247,0.035); }
+  .model-cell{ font-weight:700; }
+  .model-sub{ display:block; font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-top:2px; font-weight:400; }
+  .fit-bar-wrap{ display:flex; align-items:center; gap:8px; }
+  .fit-bar{ width:60px; height:5px; border-radius:4px; background: #E3EAFB; overflow:hidden; }
+  .fit-bar i{ display:block; height:100%; background: linear-gradient(90deg, var(--cyan), var(--green)); }
+  .fit-pct{ font-family: var(--mono); font-size:11.5px; color:var(--text-dim); width:32px; }
+  .badge{
+    font-family: var(--mono); font-size:10px; padding:3px 8px; border-radius:5px;
+    display:inline-flex; align-items:center; gap:4px; font-weight:600; letter-spacing:0.02em;
+  }
+  .badge.ok{ background: var(--green-dim); color: var(--green); border:1px solid rgba(111,191,139,0.35); }
+  .badge.adapter{ background: var(--brass-dim); color: var(--brass); border:1px solid rgba(214,167,86,0.35); }
+  .table-actions{ display:flex; gap:8px; }
+  .icon-btn{
+    width:28px; height:28px; border-radius:6px; border:1px solid var(--border);
+    background: var(--panel-2); display:flex; align-items:center; justify-content:center; cursor:pointer;
+    color: var(--text-dim);
+  }
+  .icon-btn:hover{ border-color: var(--cyan); color:#1D4FC0; }
+  .icon-btn.armed{ background:var(--red); border-color:var(--red); color:#fff; animation:armPulse .35s ease; }
+  @keyframes armPulse{ 0%{ transform:scale(1);} 50%{ transform:scale(1.12);} 100%{ transform:scale(1);} }
+  .icon-btn svg{ width:13px; height:13px; }
+
+  /* ---------- Placeholder tabs ---------- */
+  .placeholder{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding: 70px 20px; color: var(--text-dim);
+  }
+  .placeholder svg{ width:38px; height:38px; color: var(--text-faint); margin-bottom:14px; }
+  .placeholder h3{ font-size:14.5px; color:var(--text); margin-bottom:6px; }
+  .placeholder p{ font-size:12px; max-width: 340px; line-height:1.6; }
+
+  /* ---------- Master (camera/lens) CRUD ---------- */
+  .master-toolbar{ display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .search-input{
+    flex:1; min-width:200px; background: var(--panel-2); border:1px solid var(--border);
+    border-radius:7px; color:var(--text); font-family: var(--sans); font-size:12.5px;
+    padding:9px 12px; outline:none;
+  }
+  .search-input:focus{ border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  .filter-select{ width:150px; }
+  .toolbar-spacer{ flex:1; }
+  .master-count{ font-family: var(--mono); font-size:11px; color: var(--text-faint); white-space:nowrap; }
+
+  .form-panel{
+    background: var(--panel-2); border:1px dashed var(--border-strong); border-radius:9px;
+    padding:18px; margin-bottom:18px;
+  }
+  .form-panel .form-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .form-panel .form-panel-head h3{ font-size:13.5px; font-weight:700; }
+  .form-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  @media (max-width: 900px){ .form-grid{ grid-template-columns:repeat(2,1fr); } }
+  .form-grid .full{ grid-column: 1 / -1; }
+  .form-grid label{ display:block; font-size:11px; color:var(--text-dim); margin-bottom:5px; font-weight:500; }
+  .form-panel .form-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+  .master-table td.model-cell .badge{ margin-top:4px; }
+  .row-actions{ display:flex; gap:6px; }
+  .empty-state{ text-align:center; padding:44px 20px; color:var(--text-dim); font-size:12.5px; }
+  .status-msg{
+    font-family: var(--mono); font-size:11px; padding:8px 12px; border-radius:7px; margin-bottom:14px;
+    display:none;
+  }
+  .status-msg.show{ display:block; }
+  .status-msg.ok{ background: var(--green-dim); color: var(--green); border:1px solid rgba(111,191,139,0.35); }
+  .status-msg.err{ background: var(--red-dim); color: var(--red); border:1px solid rgba(225,104,92,0.35); }
+
+  .hidden{ display:none !important; }
+
+  /* ---------- 提案書プレビュー ---------- */
+  .proposal-overlay{
+    position:fixed; inset:0; z-index:100; background: rgba(5,4,10,0.72);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px; overflow-y:auto;
+  }
+  .proposal-actions{
+    position:sticky; top:0; z-index:5; display:flex; justify-content:flex-end; gap:8px;
+    max-width:820px; margin:0 auto 12px; width:100%;
+  }
+  .proposal-actions .btn{ background:#FFFFFF; }
+  .proposal-sheet{
+    width:100%; max-width:820px; background:#FBFAF8; color:#1C2027; border-radius:14px;
+    overflow:hidden; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .proposal-sheet h1, .proposal-sheet h2, .proposal-sheet h3{ font-family: var(--sans); color:#12151A; }
+
+  .prop-topbar{
+    height:6px; background: linear-gradient(90deg, var(--cyan), var(--brass), var(--cyan));
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .prop-body{ padding:38px 44px 30px; }
+
+  .prop-header{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:26px; }
+  .prop-brand{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .prop-brand-mark{
+    width:26px; height:26px; border-radius:7px; flex-shrink:0;
+    background: conic-gradient(from 210deg, var(--cyan), var(--brass), var(--cyan));
+    position:relative;
+  }
+  .prop-brand-mark::after{ content:""; position:absolute; inset:2.5px; border-radius:5px; background:#FBFAF8; }
+  .prop-brand-word{ font-family: var(--mono); font-size:10px; letter-spacing:0.1em; color:#7A828F; text-transform:uppercase; }
+  .prop-header .prop-title{ font-size:23px; font-weight:800; letter-spacing:-0.01em; }
+  .prop-header .prop-sub{ font-family: var(--mono); font-size:10.5px; color:#7A828F; margin-top:5px; letter-spacing:0.03em; }
+  .prop-header .prop-meta{ text-align:right; font-family: var(--mono); font-size:10.5px; color:#9AA1AA; line-height:1.9; }
+  .prop-header .prop-meta b{ color:#33383F; }
+
+  .prop-section{ margin-bottom:26px; }
+  .prop-section .prop-label{
+    font-family: var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    color:#1D4FC0; margin-bottom:10px; font-weight:700; display:flex; align-items:center; gap:7px;
+  }
+  .prop-section .prop-label::before{
+    content:""; width:6px; height:6px; border-radius:50%; background: var(--cyan); display:inline-block;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  .prop-note-box{ background:#F1F0EC; border:1px solid #E7E5DE; border-radius:9px; padding:14px 15px; font-size:12.5px; line-height:1.8; color:#33383F; white-space:pre-wrap; margin-top:10px; }
+
+  .prop-kv-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:#F6F5F1; border-radius:9px; overflow:hidden; border:1px solid #E7E5DE; }
+  .prop-kv-table td{ padding:11px 15px; border-bottom:1px solid #E7E5DE; }
+  .prop-kv-table tr:last-child td{ border-bottom:none; }
+  .prop-kv-table td:first-child{
+    color:#8A8578; font-family: var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.04em;
+    width:38%; white-space:nowrap;
+  }
+  .prop-kv-table td:last-child{ color:#14171C; font-weight:700; font-family: var(--mono); font-size:13.5px; }
+  .prop-kv-table td:last-child .unit{ font-size:11px; color:#8A8578; font-weight:500; margin-left:3px; font-family: var(--sans); }
+  .prop-kv-table .highlight td:last-child{ color:#1D4FC0; }
+
+  .prop-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .prop-table th{
+    text-align:left; font-family: var(--mono); font-size:9.5px; color:#8A8578; text-transform:uppercase;
+    letter-spacing:.05em; padding:8px 10px; border-bottom:1.5px solid #14171C;
+  }
+  .prop-table td{ padding:9px 10px; border-bottom:1px solid #E7E5DE; color:#20242A; }
+  .prop-table tr:nth-child(even) td{ background:#F6F5F1; }
+  .prop-total-row td{ font-weight:800; font-size:14.5px; border-bottom:none; padding-top:14px; background:transparent !important; color:#1D4FC0; }
+  .prop-diagram{ background:#F1F0EC; border:1px solid #E7E5DE; border-radius:9px; padding:14px; display:flex; justify-content:center; }
+  .prop-footer{
+    margin-top:6px; padding:16px 44px 22px; border-top:1px solid #E7E5DE; font-size:10px; color:#9AA1AA;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .prop-footer .pf-brand{ display:flex; align-items:center; gap:7px; font-family: var(--mono); letter-spacing:.06em; }
+  .prop-empty{ font-size:12.5px; color:#9AA1AA; padding:10px 0; }
+
+  @media print{
+    body *{ visibility:hidden; }
+    .proposal-overlay, .proposal-overlay *{ visibility:visible; }
+    .proposal-overlay{ position:absolute; inset:auto; padding:0; background:#fff; }
+    .proposal-actions{ display:none !important; }
+    .proposal-sheet{ box-shadow:none; max-width:100%; border-radius:0; }
+  }
+
+  /* ---------- サイクルタイム可視化 ---------- */
+  .link-btn{
+    font-family: var(--mono); font-size:10px; color: var(--cyan); cursor:pointer;
+    text-decoration: underline; background:none; border:none; padding:4px 0 0; display:block;
+  }
+  .cycle-bar-wrap{ margin: 16px 0 8px; }
+  .cycle-bar{
+    position:relative; height:36px; border-radius:8px; overflow:visible; display:flex;
+    background: var(--panel-2); border:1px solid var(--border);
+  }
+  .cycle-bar .seg{
+    height:100%; display:flex; align-items:center; justify-content:center;
+    font-family: var(--mono); font-size:10px; color:#FFFFFF; font-weight:700;
+    white-space:nowrap; overflow:hidden; border-right: 1px solid rgba(0,0,0,0.15);
+  }
+  .cycle-bar .seg:first-child{ border-radius:8px 0 0 8px; }
+  .cycle-bar .seg:last-child{ border-radius:0 8px 8px 0; border-right:none; }
+  .cycle-bar .seg.exposure{ background: var(--cyan); }
+  .cycle-bar .seg.processing{ background: var(--brass); }
+  .cycle-bar .seg.output{ background: var(--green); }
+  .cycle-target-line{ position:absolute; top:-6px; bottom:-6px; width:2px; background:#27324B; opacity:0.85; }
+  .cycle-target-label{
+    position:absolute; top:-20px; font-family: var(--mono); font-size:9.5px; color:var(--text-dim);
+    transform: translateX(-50%); white-space:nowrap;
+  }
+  .cycle-legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; }
+  .cycle-legend span{ display:flex; align-items:center; gap:6px; font-family: var(--mono); font-size:10.5px; color:var(--text-dim); }
+  .cycle-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .cycle-summary{ display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
+  .cycle-summary .cs-label{ font-family: var(--mono); font-size:9.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; }
+  .cycle-summary .cs-value{ font-family: var(--mono); font-size:26px; font-weight:800; color:var(--text); }
+  .cycle-summary .cs-value .unit{ font-size:13px; color:var(--text-dim); font-weight:500; margin-left:2px; }
+  .badge.over{ background: var(--red-dim); color: var(--red); border:1px solid rgba(225,104,92,0.35); }
+
+  .est-inline-input{
+    width:100%; max-width:110px; background: var(--panel-2); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-family: var(--mono); font-size:12.5px; padding:6px 8px; outline:none;
+  }
+  .est-inline-input:focus{ border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  .cs-value.accent{ color: var(--cyan); }
+
+  /* ---------- DSLルール参照パネル ---------- */
+  .dsl-rules{
+    margin-top:14px; border:1px solid var(--border); border-radius:8px;
+    background: var(--panel-2); overflow:hidden;
+  }
+  .dsl-rules summary{
+    cursor:pointer; padding:10px 14px; font-family: var(--mono); font-size:11px;
+    color: var(--cyan); list-style:none; display:flex; align-items:center; gap:6px;
+    user-select:none;
+  }
+  .dsl-rules summary::-webkit-details-marker{ display:none; }
+  .dsl-rules summary::before{ content:"▸"; display:inline-block; transition: transform .15s ease; }
+  .dsl-rules[open] summary::before{ transform: rotate(90deg); }
+  .dsl-rules .dsl-rules-body{
+    padding:0 14px 14px; font-size:11.5px; color: var(--text-dim); line-height:1.8;
+  }
+  .dsl-rules .dsl-rules-body ul{ padding-left:18px; margin:0; }
+  .dsl-rules .dsl-rules-body code{
+    font-family: var(--mono); font-size:10.5px; color: var(--brass);
+    background: rgba(214,167,86,0.1); padding:1px 5px; border-radius:4px;
+  }
+
+  /* ---------- 案件メモ ---------- */
+  textarea.note-textarea{
+    width:100%; background: var(--panel-2); border:1px solid var(--border); border-radius:7px;
+    color:var(--text); font-family: var(--sans); font-size:12.5px; padding:10px 11px; resize:vertical;
+    outline:none; line-height:1.6;
+  }
+  textarea.note-textarea:focus{ border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  .autosave-note{ font-family: var(--mono); font-size:10px; color:var(--text-faint); margin-top:8px; }
+  .autosave-note.saved{ color: var(--green); }
+
+  /* ---------- トースト通知 ---------- */
+  #toastHost{
+    position:fixed; left:0; right:0; bottom:22px; z-index:200;
+    display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;
+    padding:0 16px;
+  }
+  .toast{
+    max-width:420px; background:#27324B; border:1px solid #27324B;
+    color:var(--text); font-family:var(--sans); font-size:12.5px; line-height:1.6;
+    padding:11px 16px; border-radius:9px; box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    opacity:0; transform:translateY(8px); transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  @media (max-width: 760px){
+    #toastHost{ bottom:78px; }
+  }
+
+  /* ---------- スマホ対応 ---------- */
+  @media (max-width: 760px){
+    .app{ flex-direction:column; }
+
+    .sidebar{
+      order:2; width:100%; flex-direction:row; align-items:stretch;
+      position:fixed; left:0; right:0; bottom:0; z-index:30;
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+      border-right:none; border-top:1px solid var(--border); gap:0;
+      background: linear-gradient(0deg, #F7FAFF, #FFFFFF);
+    }
+    .sidebar .brand, .sidebar .nav-label, .sidebar-foot{ display:none; }
+    .nav{ flex-direction:row; flex:1; justify-content:space-around; }
+    .nav-item{
+      flex-direction:column; gap:3px; font-size:9.5px; text-align:center;
+      padding:6px 4px; border-radius:8px; flex:1;
+    }
+    .nav-item svg{ width:18px; height:18px; }
+    .nav-count{ margin-left:0; font-size:9px; padding:0 5px; }
+
+    .main{ order:1; }
+    .topbar{
+      flex-wrap:wrap; gap:8px; padding:12px 14px;
+      position:static; /* スクロールで隠れて操作しづらくなるのを防ぐ */
+    }
+    .topbar h1{ font-size:15px; }
+    .topbar-spacer{ flex-basis:100%; height:0; }
+    .field-inline{ width:100%; }
+    .project-input{ width:100%; }
+    .btn{ flex:1; justify-content:center; padding:10px 10px; font-size:12px; }
+
+    .content{ padding: 14px 14px 100px; }
+    .wf-banner{ font-size:10px; }
+
+    .card{ padding:14px; overflow-x:auto; }
+    table{ min-width:560px; }
+
+    .form-grid{ grid-template-columns:1fr; }
+    .master-toolbar{ gap:8px; }
+    .search-input{ min-width:0; width:100%; }
+    .filter-select{ width:100%; }
+
+    .readout-grid{ grid-template-columns:repeat(2,1fr); }
+    .readout .v{ font-size:20px; }
+
+    .icon-btn{ width:36px; height:36px; }
+    input[type=number], select, .search-input, .project-input{ font-size:16px; } /* iOSの自動ズーム防止 */
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2D6FF7" stroke-width="2"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">光学系選定ツール</div>
+        <div class="brand-sub">Optics Selector</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Workspace</div>
+      <div class="nav-item active" data-tab="calc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.3"/></svg>
+        選定計算
+      </div>
+      <div class="nav-item" data-tab="master">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="14" height="11" rx="2"/><path d="M17 10l4-2v10l-4-2"/></svg>
+        マスタ管理
+        <span class="nav-count" id="navMasterCount">0</span>
+      </div>
+      <div class="nav-item" data-tab="estimate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l3 3v17H6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+        見積もり
+      </div>
+      <div class="nav-item" data-tab="diagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="9" width="6" height="6" rx="1"/><rect x="16" y="9" width="6" height="6" rx="1"/><path d="M8 12h8"/></svg>
+        構成図
+      </div>
+      <div class="nav-item" data-tab="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v6h6"/><path d="M4.2 13a8 8 0 1 0 2-8.6L4 10"/></svg>
+        案件履歴
+      </div>
+    </nav>
+
+    <div class="sidebar-foot">
+      <span class="tag">v1.0 内部利用</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>選定計算</h1>
+        <div class="desc">視野・WD・検出条件から焦点距離を計算し、カメラ・レンズを選んで見積もりへ</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <div class="field-inline">
+        <label>案件名</label>
+        <input class="project-input" type="text" id="topProjectName" placeholder="例：〇〇製作所_外観検査案件">
+      </div>
+      <button class="btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+        CSV書き出し
+      </button>
+      <button class="btn primary" id="proposalBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        提案書プレビュー
+      </button>
+    </div>
+
+    <div class="content">
+
+      <div id="tab-calc">
+        <div class="card" id="notesCard">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Customer Requirements</div>
+              <h2>案件情報・客先仕様メモ</h2>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label>客先名</label>
+              <input type="text" id="pn_customer" placeholder="例：〇〇製作所">
+            </div>
+            <div>
+              <label>検査対象・工程</label>
+              <input type="text" id="pn_target" placeholder="例：シリンダーワーク外観検査">
+            </div>
+            <div>
+              <label>設置環境</label>
+              <input type="text" id="pn_env" placeholder="例：粉塵あり、周囲温度40℃">
+            </div>
+            <div class="full">
+              <label>その他仕様・要望（自由記述）</label>
+              <textarea class="note-textarea" id="pn_note" rows="4" placeholder="例：24V電源は客先支給、防塵カバー必須、ライン停止不可のため脱着治具希望　など"></textarea>
+            </div>
+          </div>
+          <div class="autosave-note" id="notesSaveStatus">入力すると自動保存されます</div>
+        </div>
+
+        <div class="grid-2">
+          <!-- 入力パネル -->
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="eyebrow">Requirements</div>
+                <h2>要件入力</h2>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>カメラ種別</label>
+              <div class="segmented" id="camTypeSeg">
+                <button class="active" data-val="area">エリア</button>
+                <button data-val="line">ライン</button>
+                <button data-val="3d">3D</button>
+              </div>
+            </div>
+
+            <div class="form-row two-col">
+              <div>
+                <label>視野 横 FOV <span class="unit">mm</span></label>
+                <input type="number" id="fovX" value="50">
+              </div>
+              <div>
+                <label>視野 縦 FOV <span class="unit">mm</span></label>
+                <input type="number" id="fovY" value="38">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>ワークディスタンス WD <span class="unit">mm</span></label>
+              <input type="number" id="wd" value="260">
+            </div>
+
+            <div class="form-row">
+              <label>カメラ（マスタから選択）</label>
+              <select id="calcCameraSelect">
+                <option value="">— 手動入力（下のプリセットを使う） —</option>
+              </select>
+              <div class="autosave-note" id="calcCameraNote"></div>
+            </div>
+
+            <div class="form-row">
+              <label>センサーサイズ</label>
+              <select id="sensorPreset">
+                <option value="1/3">1/3インチ（4.80×3.60mm）</option>
+                <option value="1/2">1/2インチ（6.4×4.8mm）</option>
+                <option value="1/1.8" selected>1/1.8インチ（7.18×5.32mm）</option>
+                <option value="2/3">2/3インチ（8.8×6.6mm）</option>
+                <option value="1in">1インチ（12.8×9.6mm）</option>
+              </select>
+            </div>
+
+            <div class="form-row two-col">
+              <div>
+                <label>画素数 横</label>
+                <input type="number" id="pixX" value="2448">
+              </div>
+              <div>
+                <label>画素数 縦</label>
+                <input type="number" id="pixY" value="2048">
+              </div>
+            </div>
+
+            <div class="form-row two-col">
+              <div>
+                <label>最小検出サイズ <span class="unit">mm</span></label>
+                <input type="number" id="minDefect" value="0.3">
+              </div>
+              <div>
+                <label>分解能係数</label>
+                <select id="resFactor">
+                  <option value="3" selected>3px/特徴</option>
+                  <option value="5">5px/特徴</option>
+                  <option value="10">10px/特徴</option>
+                  <option value="custom">カスタム…</option>
+                </select>
+                <input type="number" id="resFactorCustom" class="hidden" step="0.5" min="0.5" value="4" placeholder="px/特徴" style="margin-top:6px;">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>マウント規格</label>
+              <select id="mountSel">
+                <option value="C" selected>C マウント</option>
+                <option value="CS">CS マウント</option>
+                <option value="M42">M42 マウント</option>
+                <option value="F">F マウント</option>
+              </select>
+            </div>
+
+            <button class="calc-btn" id="calcBtn">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 5.5 13.5H10.5L9 22 18.5 9.5H13.5Z"/></svg>
+              計算する
+            </button>
+          </div>
+
+          <!-- 光路図 -->
+          <div class="card diagram-card">
+            <div class="card-head">
+              <div>
+                <div class="eyebrow">Optical Path</div>
+                <h2>光路図（ライブ）</h2>
+              </div>
+            </div>
+            <div id="rayHost"></div>
+            <div class="diagram-legend">
+              <span><i style="background:var(--cyan)"></i>光路</span>
+              <span><i style="background:var(--brass)"></i>WD</span>
+              <span><i style="background:var(--text-dim)"></i>FOV</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 計算結果 -->
+        <div class="card readout-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Result</div>
+              <h2>計算結果</h2>
+            </div>
+          </div>
+          <div class="readout-grid">
+            <div class="readout">
+              <div class="k">必要焦点距離</div>
+              <div class="v accent" id="outFocal">—<span class="unit">mm</span></div>
+            </div>
+            <div class="readout">
+              <div class="k">画角</div>
+              <div class="v" id="outAngle">—<span class="unit">°</span></div>
+            </div>
+            <div class="readout">
+              <div class="k">分解能</div>
+              <div class="v" id="outRes">—<span class="unit">µm/px</span></div>
+            </div>
+            <div class="readout">
+              <div class="k">検出割当画素</div>
+              <div class="v" id="outPx">—<span class="unit">px/特徴</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 動体ブレ・露光時間計算 -->
+        <div class="card readout-card" id="motionBlurCard">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Motion Blur</div>
+              <h2>動体ブレ・露光時間計算</h2>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>対象の動き方</label>
+            <div class="segmented" id="motionModeSeg">
+              <button class="active" data-val="rotate">回転体</button>
+              <button data-val="linear">直線搬送</button>
+            </div>
+          </div>
+
+          <div id="motionRotateFields" class="form-row two-col">
+            <div>
+              <label>対象直径 φ <span class="unit">mm</span></label>
+              <input type="number" id="mb_diameter" value="100">
+            </div>
+            <div>
+              <label>回転周期 <span class="unit">秒/周</span></label>
+              <input type="number" id="mb_period" value="3">
+            </div>
+          </div>
+
+          <div id="motionLinearFields" class="form-row two-col hidden">
+            <div>
+              <label>搬送速度</label>
+              <input type="number" id="mb_speed" value="200">
+            </div>
+            <div>
+              <label>速度の単位</label>
+              <select id="mb_speedUnit">
+                <option value="mmps">mm/秒</option>
+                <option value="mpm">m/分</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>許容ブレ量 <span class="unit">px（分解能の計算結果と連動）</span></label>
+            <input type="number" step="0.5" id="mb_allowPx" value="1">
+          </div>
+
+          <div class="readout-grid" style="grid-template-columns:repeat(3,1fr);">
+            <div class="readout">
+              <div class="k">表面速度</div>
+              <div class="v" id="mbSpeedOut">—<span class="unit">mm/s</span></div>
+            </div>
+            <div class="readout">
+              <div class="k">許容ブレ量</div>
+              <div class="v" id="mbBlurOut">—<span class="unit">mm</span></div>
+            </div>
+            <div class="readout">
+              <div class="k">必要露光時間</div>
+              <div class="v accent" id="mbExposureOut">—<span class="unit">µs</span></div>
+            </div>
+          </div>
+          <div class="status-msg err" id="mbWarn"></div>
+        </div>
+
+        <!-- サイクルタイム内訳 -->
+        <div class="card readout-card" id="cycleTimeCard">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Cycle Time</div>
+              <h2>サイクルタイム内訳</h2>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label>撮像時間 <span class="unit">ms</span></label>
+              <input type="number" step="0.01" id="ct_exposure" value="0.2">
+              <button type="button" class="link-btn" id="ctPullExposureBtn">↑ 露光時間計算から反映</button>
+            </div>
+            <div>
+              <label>処理時間 <span class="unit">ms（画像処理・AI判定）</span></label>
+              <input type="number" step="1" id="ct_processing" value="50">
+            </div>
+            <div>
+              <label>結果出力時間 <span class="unit">ms（PLC通信等）</span></label>
+              <input type="number" step="1" id="ct_output" value="10">
+            </div>
+            <div>
+              <label>目標タクトタイム <span class="unit">ms（客先要求）</span></label>
+              <input type="number" step="10" id="ct_takt" value="3000">
+            </div>
+          </div>
+
+          <div class="cycle-bar-wrap">
+            <div class="cycle-bar" id="cycleBar"></div>
+          </div>
+          <div class="cycle-legend">
+            <span><i style="background:var(--cyan)"></i>撮像</span>
+            <span><i style="background:var(--brass)"></i>処理</span>
+            <span><i style="background:var(--green)"></i>結果出力</span>
+            <span><i style="background:#27324B"></i>目標タクトタイム</span>
+          </div>
+
+          <div class="cycle-summary">
+            <div>
+              <div class="cs-label">合計サイクルタイム</div>
+              <div class="cs-value" id="cycleTotalOut">—<span class="unit">ms</span></div>
+            </div>
+            <span class="badge" id="cycleStatusBadge"></span>
+          </div>
+        </div>
+
+        <!-- カメラ・レンズを選んで見積もりに追加 -->
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Add to Estimate</div>
+              <h2>カメラ・レンズを選んで見積もりに追加</h2>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label>カメラ（マスタから選択）</label>
+              <select id="pickCameraSelect"></select>
+            </div>
+            <div>
+              <label>レンズ（マスタから選択）</label>
+              <select id="pickLensSelect"></select>
+            </div>
+            <div>
+              <label>数量</label>
+              <input type="number" id="pickQty" value="1" min="1">
+            </div>
+          </div>
+
+          <div id="pickInfoPanel" style="margin-top:12px;"></div>
+          <div class="empty-state hidden" id="pickEmpty">カメラ・レンズをマスタに登録すると、ここで選んで見積もりに追加できます。</div>
+
+          <div class="table-actions" style="margin-top:14px; display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn" id="pickCopyDslBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1"/><rect x="9" y="3" width="11" height="14" rx="2"/></svg>
+              DSLスニペットをコピー
+            </button>
+            <button class="btn primary" id="pickAddEstBtn">見積もりに追加</button>
+          </div>
+
+          <details class="dsl-rules">
+            <summary>DSLルールについて（FA構成図DSLツール連携）</summary>
+            <div class="dsl-rules-body">
+              <ul>
+                <li>カメラ種別は <code>エリアカメラ</code>／<code>ラインカメラ</code>／<code>3Dカメラ</code> を省略せず記載します。</li>
+                <li>接続順は <code>レンズ → カメラ</code> です。</li>
+                <li>レンズとカメラのマウント規格が一致しない場合、自動で <code>レンズ → アダプター → カメラ</code> の順にアダプターを挿入します。</li>
+                <li>同じ部品が複数台ある場合は、行を複数回に分けて記載します（数量ぶんループ）。</li>
+                <li>ここに書かれていない配線（電源・グランド・PLC接続など）は自動生成しません。構成図ツール側で追記してください。</li>
+                <li>コピーしたテキストは、FA構成図DSLツールの「DSL入力」欄にそのまま貼り付け可能です。</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <!-- AIに相談 -->
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Ask AI</div>
+              <h2>AIに相談する</h2>
+            </div>
+          </div>
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:14px;">
+            今の入力内容（案件情報・要件・計算結果・警告・見積もり）をまとめて、選定の妥当性をAIにチェックしてもらう相談文を自動生成します。APIキーを設定すれば、その場でAIの回答も表示できます。
+          </p>
+
+          <details class="dsl-rules" id="apiKeyPanel">
+            <summary>Anthropic APIキー設定（任意・この端末にのみ保存）</summary>
+            <div class="dsl-rules-body">
+              <p style="margin-bottom:10px;">console.anthropic.com で発行したご自身のAPIキーを入力すると、「AIに直接聞く」が使えるようになります。キーはこの端末のブラウザ内にのみ保存され、サーバーやCSV・案件履歴には一切含まれません。他の端末では都度入力が必要です。API利用料はご自身のAnthropicアカウントに課金されます。</p>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <input type="password" id="apiKeyInput" class="search-input" style="flex:1; min-width:220px;" placeholder="sk-ant-...">
+                <button class="btn" id="apiKeySaveBtn">保存</button>
+                <button class="btn" id="apiKeyClearBtn">削除</button>
+              </div>
+              <div class="autosave-note" id="apiKeyStatus" style="margin-top:8px;"></div>
+            </div>
+          </details>
+
+          <textarea class="note-textarea" id="aiConsultPreview" rows="8" readonly style="margin-top:14px;" placeholder="下のボタンを押すと、相談文がここに生成されます。"></textarea>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap;">
+            <button class="btn" id="aiConsultGenBtn">相談文を生成</button>
+            <button class="btn" id="aiConsultCopyBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1"/><rect x="9" y="3" width="11" height="14" rx="2"/></svg>
+              生成してコピー
+            </button>
+            <button class="btn primary" id="aiConsultAskBtn">✨ AIに直接聞く</button>
+          </div>
+
+          <div id="aiAnswerWrap" class="hidden" style="margin-top:14px;">
+            <label style="display:block; font-size:11.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500;">AIの回答</label>
+            <div id="aiAnswerBox" style="background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:14px 16px; font-size:12.5px; line-height:1.8; white-space:pre-wrap;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-master" class="hidden">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="master-toolbar" style="margin-bottom:0;">
+            <div class="segmented" id="masterSubSeg" style="flex:1; min-width:220px;">
+              <button class="active" data-val="camera">カメラ</button>
+              <button data-val="lens">レンズ</button>
+              <button data-val="parts">部品</button>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <button class="btn" id="templateCsvBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l3 3v17H6z"/><path d="M9 13h6M9 17h6"/></svg>
+              記入用テンプレートCSV
+            </button>
+            <button class="btn" id="allExportBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+              全マスタCSV書き出し
+            </button>
+            <button class="btn primary" id="allImportTrigger">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 5h16"/></svg>
+              全マスタCSV読込
+            </button>
+            <input type="file" id="allImportFile" accept=".csv" style="display:none;">
+          </div>
+          <div class="autosave-note" id="allImportStatus" style="margin-top:10px;">カメラ・レンズ・部品をまとめて1つのCSVで管理します（列は多めですが、種別ごとに使う列だけ埋まります）。</div>
+        </div>
+
+      <div id="master-camera">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Camera Master</div>
+              <h2>カメラマスタ</h2>
+            </div>
+            <div class="master-count" id="cameraCount">0件</div>
+          </div>
+
+          <div id="cameraStatus" class="status-msg"></div>
+
+          <div class="master-toolbar">
+            <input class="search-input" id="cameraSearch" type="text" placeholder="メーカー・型式で検索">
+            <select class="filter-select" id="cameraMountFilter">
+              <option value="">マウント：すべて</option>
+              <option value="C">C</option>
+              <option value="CS">CS</option>
+              <option value="M42">M42</option>
+              <option value="M58">M58</option>
+              <option value="F">F</option>
+            </select>
+            <div class="toolbar-spacer"></div>
+            <button class="btn primary" id="cameraAddBtn">＋ 新規登録</button>
+          </div>
+
+          <div class="form-panel hidden" id="cameraFormPanel">
+            <div class="form-panel-head">
+              <h3 id="cameraFormTitle">カメラを新規登録</h3>
+            </div>
+            <div class="form-grid">
+              <div><label>メーカー名</label><input type="text" id="cf_maker" placeholder="例：Vieworks"></div>
+              <div><label>型式</label><input type="text" id="cf_model" placeholder="例：VC-1234MX"></div>
+              <div>
+                <label>カメラ種別</label>
+                <select id="cf_cameraType">
+                  <option value="エリア">エリアカメラ</option>
+                  <option value="ライン">ラインカメラ</option>
+                  <option value="3D">3Dカメラ</option>
+                </select>
+              </div>
+              <div><label>センサーサイズ表記</label><input type="text" id="cf_sensorSize" placeholder="例：1/1.8インチ"></div>
+              <div><label>センサー横幅 (mm)</label><input type="number" step="0.01" id="cf_sensorWidthMm" placeholder="例：7.18"></div>
+              <div><label>センサー縦幅 (mm)</label><input type="number" step="0.01" id="cf_sensorHeightMm" placeholder="例：5.32"></div>
+              <div><label>画素数 横</label><input type="number" id="cf_pixelsH" placeholder="例：2448"></div>
+              <div><label>画素数 縦</label><input type="number" id="cf_pixelsV" placeholder="例：2048"></div>
+              <div><label>画素ピッチ (µm)</label><input type="number" step="0.01" id="cf_pixelPitchUm" placeholder="例：3.45"></div>
+              <div>
+                <label>マウント規格</label>
+                <select id="cf_mount">
+                  <option value="C">C</option>
+                  <option value="CS">CS</option>
+                  <option value="M42">M42</option>
+                  <option value="M58">M58</option>
+                  <option value="F">F</option>
+                </select>
+              </div>
+              <div>
+                <label>シャッター方式</label>
+                <select id="cf_shutterType">
+                  <option value="グローバル">グローバルシャッター</option>
+                  <option value="ローリング">ローリングシャッター</option>
+                </select>
+              </div>
+              <div><label>インターフェース</label><input type="text" id="cf_interface" placeholder="例：GigE / USB3 / CameraLink"></div>
+              <div><label>最大FPS</label><input type="number" id="cf_maxFps" placeholder="例：75"></div>
+              <div><label>参考単価 <span class="unit">円（任意）</span></label><input type="number" id="cf_unitPrice" placeholder="例：180000"></div>
+              <div class="full"><label>備考・カタログURL</label><input type="text" id="cf_note" placeholder="備考"></div>
+              <div class="full"><input type="text" id="cf_url" placeholder="https://... カタログページURL（任意）"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn" id="cameraCancelBtn">キャンセル</button>
+              <button class="btn primary" id="cameraSaveBtn">保存</button>
+            </div>
+          </div>
+
+          <table class="master-table">
+            <thead>
+              <tr><th>メーカー / 型式</th><th>種別</th><th>センサー</th><th>画素数</th><th>マウント</th><th>IF</th><th></th></tr>
+            </thead>
+            <tbody id="cameraTableBody"></tbody>
+          </table>
+          <div class="empty-state hidden" id="cameraEmpty">まだカメラが登録されていません。「＋ 新規登録」またはCSV読込で追加してください。</div>
+        </div>
+      </div>
+
+      <div id="master-lens" class="hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Lens Master</div>
+              <h2>レンズマスタ</h2>
+            </div>
+            <div class="master-count" id="lensCount">0件</div>
+          </div>
+
+          <div id="lensStatus" class="status-msg"></div>
+
+          <div class="master-toolbar">
+            <input class="search-input" id="lensSearch" type="text" placeholder="メーカー・型式で検索">
+            <select class="filter-select" id="lensMountFilter">
+              <option value="">マウント：すべて</option>
+              <option value="C">C</option>
+              <option value="CS">CS</option>
+              <option value="M42">M42</option>
+              <option value="M58">M58</option>
+              <option value="F">F</option>
+            </select>
+            <div class="toolbar-spacer"></div>
+            <button class="btn primary" id="lensAddBtn">＋ 新規登録</button>
+          </div>
+
+          <div class="form-panel hidden" id="lensFormPanel">
+            <div class="form-panel-head">
+              <h3 id="lensFormTitle">レンズを新規登録</h3>
+            </div>
+            <div class="form-grid">
+              <div><label>メーカー名</label><input type="text" id="lf_maker" placeholder="例：KOWA"></div>
+              <div><label>型式</label><input type="text" id="lf_model" placeholder="例：LM16JC10M"></div>
+              <div><label>焦点距離 (mm)</label><input type="number" step="0.1" id="lf_focalLengthMm" placeholder="例：16"></div>
+              <div><label>F値（開放）</label><input type="number" step="0.1" id="lf_fNoMin" placeholder="例：1.8"></div>
+              <div><label>F値（最小絞り）</label><input type="number" step="0.1" id="lf_fNoMax" placeholder="例：16"></div>
+              <div>
+                <label>対応センサーサイズ（最大）</label>
+                <select id="lf_maxSensorFormat">
+                  <option value="">不明・未確認</option>
+                  <option value="1/3">1/3型まで</option>
+                  <option value="1/2">1/2型まで</option>
+                  <option value="1/1.8">1/1.8型まで</option>
+                  <option value="2/3">2/3型まで</option>
+                  <option value="1">1型まで</option>
+                  <option value="over1">1型超対応</option>
+                </select>
+              </div>
+              <div>
+                <label>マウント規格</label>
+                <select id="lf_mount">
+                  <option value="C">C</option>
+                  <option value="CS">CS</option>
+                  <option value="M42">M42</option>
+                  <option value="M58">M58</option>
+                  <option value="F">F</option>
+                </select>
+              </div>
+              <div>
+                <label>レンズ種別</label>
+                <select id="lf_lensType">
+                  <option value="エントセントリック">エントセントリック（通常レンズ）</option>
+                  <option value="テレセントリック">テレセントリック</option>
+                </select>
+              </div>
+              <div><label>最至近撮影距離 (mm)</label><input type="number" id="lf_minWdMm" placeholder="例：100"></div>
+              <div><label>ディストーション (%)</label><input type="number" step="0.1" id="lf_distortionPct" placeholder="例：-0.5"></div>
+              <div id="lf_telecentricWdWrap" class="hidden"><label>テレセントリック公称WD (mm)</label><input type="number" id="lf_telecentricWdMm" placeholder="例：110"></div>
+              <div id="lf_telecentricRangeWrap" class="hidden"><label>テレセントリック域 <span class="unit">±mm（許容範囲）</span></label><input type="number" id="lf_telecentricRangeMm" placeholder="例：5"></div>
+              <div><label>参考単価 <span class="unit">円（任意）</span></label><input type="number" id="lf_unitPrice" placeholder="例：45000"></div>
+              <div class="full"><label>備考・カタログURL</label><input type="text" id="lf_note" placeholder="備考"></div>
+              <div class="full"><input type="text" id="lf_url" placeholder="https://... カタログページURL（任意）"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn" id="lensCancelBtn">キャンセル</button>
+              <button class="btn primary" id="lensSaveBtn">保存</button>
+            </div>
+          </div>
+
+          <table class="master-table">
+            <thead>
+              <tr><th>メーカー / 型式</th><th>種別</th><th>焦点距離</th><th>F値</th><th>マウント</th><th>最至近距離</th><th></th></tr>
+            </thead>
+            <tbody id="lensTableBody"></tbody>
+          </table>
+          <div class="empty-state hidden" id="lensEmpty">まだレンズが登録されていません。「＋ 新規登録」またはCSV読込で追加してください。</div>
+        </div>
+      </div>
+      <div id="master-parts" class="hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Other Parts Master</div>
+              <h2>部品マスタ（コントローラー・照明・ケーブル・電源・付属品）</h2>
+            </div>
+            <div class="master-count" id="partCount">0件</div>
+          </div>
+
+          <div id="partStatus" class="status-msg"></div>
+
+          <div class="master-toolbar">
+            <input class="search-input" id="partSearch" type="text" placeholder="メーカー・型式で検索">
+            <select class="filter-select" id="partCategoryFilter">
+              <option value="">種別：すべて</option>
+              <option value="コントローラー">コントローラー</option>
+              <option value="照明">照明</option>
+              <option value="ケーブル">ケーブル</option>
+              <option value="電源">電源</option>
+              <option value="付属品">付属品</option>
+              <option value="その他">その他</option>
+            </select>
+            <div class="toolbar-spacer"></div>
+            <button class="btn primary" id="partAddBtn">＋ 新規登録</button>
+          </div>
+
+          <div class="form-panel hidden" id="partFormPanel">
+            <div class="form-panel-head">
+              <h3 id="partFormTitle">部品を新規登録</h3>
+            </div>
+            <div class="form-grid">
+              <div>
+                <label>種別</label>
+                <select id="pf_category">
+                  <option value="コントローラー">コントローラー</option>
+                  <option value="照明">照明</option>
+                  <option value="ケーブル">ケーブル</option>
+                  <option value="電源">電源</option>
+                  <option value="付属品">付属品</option>
+                  <option value="その他">その他</option>
+                </select>
+              </div>
+              <div><label>メーカー名</label><input type="text" id="pf_maker" placeholder="例：CKD"></div>
+              <div><label>型式</label><input type="text" id="pf_model" placeholder="例：LFB-24V-5A"></div>
+              <div><label>参考単価 <span class="unit">円（任意）</span></label><input type="number" id="pf_unitPrice" placeholder="例：15000"></div>
+              <div class="full"><label>備考</label><input type="text" id="pf_note" placeholder="用途・仕様など"></div>
+              <div class="full"><input type="text" id="pf_url" placeholder="https://... カタログページURL（任意）"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn" id="partCancelBtn">キャンセル</button>
+              <button class="btn primary" id="partSaveBtn">保存</button>
+            </div>
+          </div>
+
+          <table class="master-table">
+            <thead>
+              <tr><th>種別</th><th>メーカー / 型式</th><th>参考単価</th><th>備考</th><th></th></tr>
+            </thead>
+            <tbody id="partTableBody"></tbody>
+          </table>
+          <div class="empty-state hidden" id="partEmpty">まだ部品が登録されていません。「＋ 新規登録」またはCSV読込で追加してください。</div>
+        </div>
+      </div>
+      </div>
+
+      <div id="tab-estimate" class="hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Add Item</div>
+              <h2>部品を追加</h2>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label>種別</label>
+              <select id="est_category">
+                <option value="エリアカメラ">エリアカメラ（カメラマスタから）</option>
+                <option value="ラインカメラ">ラインカメラ（カメラマスタから）</option>
+                <option value="レンズ">レンズ（レンズマスタから）</option>
+                <option value="コントローラー">コントローラー</option>
+                <option value="照明">照明</option>
+                <option value="ケーブル">ケーブル</option>
+                <option value="電源">電源</option>
+                <option value="付属品">付属品</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+            <div>
+              <label>型式を選択</label>
+              <select id="est_itemSelect"></select>
+            </div>
+            <div>
+              <label>数量</label>
+              <input type="number" id="est_qty" value="1" min="1">
+            </div>
+          </div>
+
+          <div id="est_quickAddOther" class="hidden">
+            <div class="form-grid" style="margin-top:4px;">
+              <div><label>メーカー（新規登録）</label><input type="text" id="eq_maker" placeholder="例：CKD"></div>
+              <div><label>型式（新規登録）</label><input type="text" id="eq_model" placeholder="例：LFB-24V-5A"></div>
+              <div>
+                <label>参考単価 <span class="unit">円（任意）</span></label>
+                <input type="number" id="eq_price" placeholder="例：15000">
+              </div>
+            </div>
+            <button class="btn" id="eq_addBtn" style="margin-top:6px;">＋ この型式を部品マスタに登録して選択</button>
+          </div>
+
+          <button class="calc-btn" id="est_addBtn" style="margin-top:16px;">見積もりに追加</button>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Estimate</div>
+              <h2>見積もり明細（概算）</h2>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>種別</th><th>型式</th><th>数量</th><th>単価（円）</th><th>小計</th><th></th></tr>
+            </thead>
+            <tbody id="estimateTableBody"></tbody>
+          </table>
+          <div class="empty-state hidden" id="estimateEmpty">まだ何も追加されていません。上のフォームから部品を追加してください。</div>
+
+          <div class="cycle-summary" style="border-top:1px solid var(--border); padding-top:16px;">
+            <div>
+              <div class="cs-label">概算合計金額</div>
+              <div class="cs-value accent" id="estimateTotalOut">¥0</div>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <button class="btn" id="estimateCopyDslBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1"/><rect x="9" y="3" width="11" height="14" rx="2"/></svg>
+              全体をDSLとしてコピー
+            </button>
+          </div>
+          <div class="autosave-note">※あくまで参考の概算です。正式な見積書とは異なります。単価は表の中で直接編集できます。</div>
+
+          <details class="dsl-rules">
+            <summary>DSLルールについて（FA構成図DSLツール連携）</summary>
+            <div class="dsl-rules-body">
+              <ul>
+                <li>各行が <code>種別(型式:...)</code> の形でノードとして出力されます。数量分だけ行が繰り返されます。</li>
+                <li>カメラ種別は <code>エリアカメラ</code>／<code>ラインカメラ</code>／<code>3Dカメラ</code> のまま出力します。</li>
+                <li>この一括コピーには接続線（→）は含まれません。誰が何に繋がるかは現場ごとに違うため、あえて自動生成していません。</li>
+                <li>コピーしたテキストは、FA構成図DSLツールの「DSL入力」欄に貼り付けたあと、必要な接続を追記してください。</li>
+                <li>個別の組み合わせ（レンズ→カメラ、マウント不一致時のアダプター挿入まで含む）は、選定計算タブの「カメラ・レンズを選んで見積もりに追加」パネルからコピーする方が正確です。</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div id="tab-diagram" class="hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">DSL Input</div>
+              <h2>DSL入力</h2>
+            </div>
+          </div>
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:12px;">
+            <code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(属性:値,...) -> 種別(...)</code> の形式で記述します。1行＝1つの接続チェーン。矢印なしの行は単独部品として描画されます。
+          </p>
+          <textarea class="note-textarea" id="dslInput" rows="8" style="font-family:var(--mono); font-size:12px;" placeholder="レンズ(型式:KOWA LM16JC10M,焦点距離:16mm)&#10; -> エリアカメラ(型式:Vieworks VC-1234MX,WD:260mm)&#10;照明(型式:CCS HPR2-100SW)&#10;コントローラー(型式:CCS PSB-2432-24VS)"></textarea>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+            <button class="btn" id="dslFromPickBtn">現在の選定から挿入</button>
+            <button class="btn" id="dslFromEstimateBtn">見積もり全体から挿入</button>
+            <div class="toolbar-spacer"></div>
+            <button class="btn primary" id="dslRenderBtn">構成図を描画</button>
+          </div>
+          <div class="status-msg" id="dslInsertStatus" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Block Diagram</div>
+              <h2>構成図</h2>
+            </div>
+            <button class="btn" id="dslDownloadSvgBtn">SVGダウンロード</button>
+          </div>
+          <div id="dslDiagramHost" style="overflow-x:auto; padding:8px 0;"></div>
+          <div class="empty-state" id="dslDiagramEmpty">DSLを入力して「構成図を描画」を押すと、ここにブロック図が表示されます。</div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Snapshot</div>
+              <h2>現在の内容を案件として保存</h2>
+            </div>
+          </div>
+          <p style="font-size:12.5px; color:var(--text-dim); line-height:1.7; margin-bottom:14px;">
+            現在の「案件情報」「選定計算」「選択中のカメラ・レンズ」「サイクルタイム」「見積もり明細」をスナップショットとして保存します。あとで一覧から呼び出したり、複数案件を比較できます。
+          </p>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div>
+              <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:5px; font-weight:500;">ステータス</label>
+              <select id="snapStatus">
+                <option value="検討中" selected>検討中</option>
+                <option value="見積提出済み">見積提出済み</option>
+                <option value="受注">受注</option>
+                <option value="失注">失注</option>
+                <option value="納品完了">納品完了</option>
+              </select>
+            </div>
+            <div class="full">
+              <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:5px; font-weight:500;">設計メモ（なぜこの構成にしたか・特記事項）</label>
+              <textarea class="note-textarea" id="snapDesignNote" rows="2" placeholder="例：ワークがバタつくため被写界深度を優先し、焦点距離を1段短めに選定。照明は客先支給。"></textarea>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button class="calc-btn" id="saveProjectBtn" style="width:auto; padding:11px 20px; margin-top:0;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+              現在の内容をスナップショット保存
+            </button>
+            <button class="btn" id="exportProjectsBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+              案件履歴CSV書き出し
+            </button>
+            <button class="btn" id="importProjectsTrigger">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 5h16"/></svg>
+              案件履歴CSV読込
+            </button>
+            <input type="file" id="importProjectsFile" accept=".csv" style="display:none;">
+          </div>
+          <div class="autosave-note" id="saveProjectStatus" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">History</div>
+              <h2>保存済み案件</h2>
+            </div>
+            <div class="master-count" id="projectCount">0件</div>
+          </div>
+          <div class="master-toolbar">
+            <input class="search-input" id="projectSearch" type="text" placeholder="案件名・客先名で検索">
+            <div class="toolbar-spacer"></div>
+            <button class="btn" id="compareProjectsBtn">選択した案件を比較（<span id="compareCount">0</span>）</button>
+          </div>
+          <table class="master-table">
+            <thead>
+              <tr><th></th><th>案件名 / 客先</th><th>ステータス</th><th>推奨構成</th><th>概算合計</th><th>保存日時</th><th></th></tr>
+            </thead>
+            <tbody id="projectTableBody"></tbody>
+          </table>
+          <div class="empty-state hidden" id="projectEmpty">まだ保存された案件がありません。上の「スナップショット保存」で最初の1件を保存してください。</div>
+        </div>
+
+        <div class="card table-card hidden" id="projectCompareCard">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">Comparison</div>
+              <h2>案件比較</h2>
+            </div>
+            <button class="btn" id="closeCompareBtn">閉じる</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="projectCompareTable"></table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="proposalOverlay" class="proposal-overlay hidden">
+  <div style="width:100%; max-width:820px; margin:0 auto;">
+    <div class="proposal-actions">
+      <button class="btn" id="proposalPrintBtn">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        印刷 / PDF保存
+      </button>
+      <button class="btn" id="proposalCloseBtn">閉じる</button>
+    </div>
+    <div class="proposal-sheet" id="proposalSheet"></div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
+<script>
+/* ---------- タブ切り替え ---------- */
+document.querySelectorAll('.nav-item').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+    el.classList.add('active');
+    ['calc','master','estimate','diagram','history'].forEach(function(t){
+      document.getElementById('tab-'+t).classList.toggle('hidden', t !== el.dataset.tab);
+    });
+    if (el.dataset.tab === 'history' && typeof renderProjectHistory === 'function') renderProjectHistory();
+  });
+});
+
+document.querySelectorAll('#masterSubSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#masterSubSeg button').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    ['camera','lens','parts'].forEach(function(t){
+      document.getElementById('master-'+t).classList.toggle('hidden', t !== b.dataset.val);
+    });
+  });
+});
+document.querySelectorAll('#camTypeSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#camTypeSeg button').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    runCalc();
+  });
+});
+
+/* ---------- センサープリセット ---------- */
+var SENSOR = {
+  "1/3":[4.80,3.60], "1/2":[6.4,4.8], "1/1.8":[7.18,5.32], "2/3":[8.8,6.6], "1in":[12.8,9.6]
+};
+
+/* ---------- 光路図描画 ---------- */
+function drawRayDiagram(fovX, wd){
+  var W = 380, H = 220;
+  var padL = 30, padR = 40, padY = 26;
+  var objX = padL, lensX = W*0.42, sensX = W - padR;
+  var midY = H/2;
+  var fovPxHalf = Math.min(60, 20 + fovX*0.35);
+
+  var svg = '<svg width="100%" height="220" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+
+  /* FOV object plane (dashed) */
+  svg += '<line x1="'+objX+'" y1="'+(midY-fovPxHalf)+'" x2="'+objX+'" y2="'+(midY+fovPxHalf)+'" stroke="#9AA8C4" stroke-width="1.4" stroke-dasharray="3 4"/>';
+  svg += '<line x1="'+objX+'" y1="'+(midY-fovPxHalf-10)+'" x2="'+objX+'" y2="'+(midY-fovPxHalf-16)+'" stroke="#9AA8C4" stroke-width="1"/>';
+
+  /* rays */
+  [ [midY-fovPxHalf, midY-14], [midY, midY], [midY+fovPxHalf, midY+14] ].forEach(function(pair){
+    svg += '<path d="M'+objX+','+pair[0]+' L'+lensX+','+midY+' L'+sensX+','+pair[1]+'" stroke="#2D6FF7" stroke-width="1.3" fill="none" opacity="0.85"/>';
+  });
+
+  /* lens (biconvex) */
+  svg += '<ellipse cx="'+lensX+'" cy="'+midY+'" rx="7" ry="34" fill="rgba(45,111,247,0.10)" stroke="#2D6FF7" stroke-width="1.6"/>';
+  svg += '<line x1="'+lensX+'" y1="'+(midY-40)+'" x2="'+lensX+'" y2="'+(midY+40)+'" stroke="#D3DEF6" stroke-width="1" stroke-dasharray="2 3"/>';
+
+  /* sensor */
+  svg += '<rect x="'+(sensX-4)+'" y="'+(midY-16)+'" width="8" height="32" rx="1.5" fill="#FFFFFF" stroke="#FF6B5E" stroke-width="1.6"/>';
+
+  /* WD dimension */
+  var dimY = H - 26;
+  svg += '<line x1="'+objX+'" y1="'+dimY+'" x2="'+lensX+'" y2="'+dimY+'" stroke="#FF6B5E" stroke-width="1"/>';
+  svg += '<line x1="'+objX+'" y1="'+(dimY-5)+'" x2="'+objX+'" y2="'+(dimY+5)+'" stroke="#FF6B5E" stroke-width="1"/>';
+  svg += '<line x1="'+lensX+'" y1="'+(dimY-5)+'" x2="'+lensX+'" y2="'+(dimY+5)+'" stroke="#FF6B5E" stroke-width="1"/>';
+  svg += '<text x="'+((objX+lensX)/2)+'" y="'+(dimY+16)+'" text-anchor="middle" font-size="10.5" font-family="JetBrains Mono" fill="#E0483B">WD '+wd+'mm</text>';
+
+  /* FOV label */
+  svg += '<text x="'+objX+'" y="'+(midY-fovPxHalf-22)+'" text-anchor="start" font-size="10.5" font-family="JetBrains Mono" fill="#6C7A99">FOV '+fovX+'mm</text>';
+
+  /* labels */
+  svg += '<text x="'+lensX+'" y="'+(midY+58)+'" text-anchor="middle" font-size="10" font-family="Zen Kaku Gothic New" fill="#6C7A99">レンズ</text>';
+  svg += '<text x="'+sensX+'" y="'+(midY+58)+'" text-anchor="middle" font-size="10" font-family="Zen Kaku Gothic New" fill="#6C7A99">センサー</text>';
+
+  svg += '</svg>';
+  return svg;
+}
+
+/* ---------- 計算 ---------- */
+var lastResolutionMm = 0; /* 選定計算タブで求めた分解能(mm/px)。動体ブレ計算と連動させる */
+var calcSelectedCamera = null; /* マスタから選択中のカメラ（センサー・画素数の自動反映用） */
+
+function getResFactor(){
+  var sel = document.getElementById('resFactor').value;
+  if (sel === 'custom'){
+    return parseFloat(document.getElementById('resFactorCustom').value) || 3;
+  }
+  return parseFloat(sel) || 3;
+}
+document.getElementById('resFactor').addEventListener('change', function(){
+  document.getElementById('resFactorCustom').classList.toggle('hidden', this.value !== 'custom');
+});
+document.getElementById('resFactorCustom').addEventListener('input', function(){ runCalc(); });
+
+function nearestFocal(f){
+  var list = [4,6,8,12,16,25,35,50,75,100];
+  return list.reduce(function(best, fl){ return Math.abs(f-fl) < Math.abs(f-best) ? fl : best; });
+}
+
+async function refreshCalcCameraOptions(){
+  var select = document.getElementById('calcCameraSelect');
+  var keepValue = select.value;
+  var all = await dbGetAll('cameras');
+  all.sort(function(a,b){ return (a.maker+a.model).localeCompare(b.maker+b.model); });
+  var options = '<option value="">— 手動入力（下のプリセットを使う） —</option>'
+    + all.map(function(c){ return '<option value="'+c.id+'">'+escXml(c.maker+' '+c.model)+'（'+escXml(c.sensorSize||'-')+'）</option>'; }).join('');
+  select.innerHTML = options;
+  if (all.some(function(c){ return c.id === keepValue; })) select.value = keepValue;
+}
+
+document.getElementById('calcCameraSelect').addEventListener('change', async function(){
+  var id = this.value;
+  var note = document.getElementById('calcCameraNote');
+  var sensorPresetEl = document.getElementById('sensorPreset');
+
+  if (!id){
+    calcSelectedCamera = null;
+    sensorPresetEl.disabled = false;
+    note.textContent = '';
+    note.className = 'autosave-note';
+    runCalc();
+    return;
+  }
+  var all = await dbGetAll('cameras');
+  var cam = all.find(function(c){ return c.id === id; });
+  if (!cam){ return; }
+  calcSelectedCamera = cam;
+  sensorPresetEl.disabled = true;
+
+  if (cam.sensorWidthMm) { /* センサー実寸あり：そのまま使用 */ }
+  if (cam.pixelsH) document.getElementById('pixX').value = cam.pixelsH;
+  if (cam.pixelsV) document.getElementById('pixY').value = cam.pixelsV;
+  if (cam.mount) document.getElementById('mountSel').value = cam.mount;
+  if (cam.cameraType){
+    document.querySelectorAll('#camTypeSeg button').forEach(function(b){
+      b.classList.toggle('active', (cam.cameraType==='エリア'&&b.dataset.val==='area') || (cam.cameraType==='ライン'&&b.dataset.val==='line') || (cam.cameraType==='3D'&&b.dataset.val==='3d'));
+    });
+  }
+
+  note.textContent = 'センサー ' + (cam.sensorWidthMm||'?') + '×' + (cam.sensorHeightMm||'?') + 'mm・画素数・マウントをマスタから自動反映しました';
+  note.className = 'autosave-note saved';
+  runCalc();
+});
+
+function runCalc(){
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var sensorKey = document.getElementById('sensorPreset').value;
+  var sensor = calcSelectedCamera && calcSelectedCamera.sensorWidthMm
+    ? [calcSelectedCamera.sensorWidthMm, calcSelectedCamera.sensorHeightMm]
+    : SENSOR[sensorKey];
+  var pixX = parseFloat(document.getElementById('pixX').value) || 0;
+  var minDefect = parseFloat(document.getElementById('minDefect').value) || 0;
+  var resFactor = getResFactor();
+
+  document.getElementById('rayHost').innerHTML = drawRayDiagram(fovX, wd);
+
+  /* 入力が揃った項目だけ個別に計算し、不足している項目は「—」表示にする */
+
+  /* 必要焦点距離：センサー横幅 × WD ÷ FOV */
+  if (sensor && sensor[0] && wd && fovX){
+    var focalNearest = nearestFocal(sensor[0] * wd / fovX);
+    document.getElementById('outFocal').innerHTML = focalNearest.toFixed(0) + '<span class="unit">mm</span>';
+  } else {
+    document.getElementById('outFocal').innerHTML = '—<span class="unit">mm</span>';
+  }
+
+  /* 画角：FOVとWDだけで出せる */
+  if (fovX && wd){
+    var angle = 2 * Math.atan(fovX / (2*wd)) * 180/Math.PI;
+    document.getElementById('outAngle').innerHTML = angle.toFixed(1) + '<span class="unit">°</span>';
+  } else {
+    document.getElementById('outAngle').innerHTML = '—<span class="unit">°</span>';
+  }
+
+  /* 分解能：FOVと画素数だけで出せる */
+  if (fovX && pixX){
+    var resPerPixel = fovX / pixX; /* mm/px */
+    lastResolutionMm = resPerPixel;
+    document.getElementById('outRes').innerHTML = (resPerPixel*1000).toFixed(1) + '<span class="unit">µm/px</span>';
+    /* 検出割当画素：さらに最小検出サイズが必要 */
+    if (minDefect){
+      document.getElementById('outPx').innerHTML = (minDefect/resPerPixel).toFixed(1) + '<span class="unit">px</span>';
+    } else {
+      document.getElementById('outPx').innerHTML = '—<span class="unit">px</span>';
+    }
+  } else {
+    lastResolutionMm = 0;
+    document.getElementById('outRes').innerHTML = '—<span class="unit">µm/px</span>';
+    document.getElementById('outPx').innerHTML = '—<span class="unit">px</span>';
+  }
+
+  computeMotionBlur();
+  updatePickInfo();
+}
+
+/* ---------- カメラ・レンズを選んで見積もりに追加 ---------- */
+var lastCandidates = []; /* 提案書プレビューで選択中の組み合わせを参照するために保持（0または1件） */
+var pickCamsCache = [], pickLensesCache = [];
+
+async function refreshPickOptions(){
+  var camSelect = document.getElementById('pickCameraSelect');
+  var lensSelect = document.getElementById('pickLensSelect');
+  var keepCam = camSelect.value, keepLens = lensSelect.value;
+
+  pickCamsCache = await dbGetAll('cameras');
+  pickLensesCache = await dbGetAll('lenses');
+  pickCamsCache.sort(function(a,b){ return (a.maker+a.model).localeCompare(b.maker+b.model); });
+  pickLensesCache.sort(function(a,b){ return (a.focalLengthMm||0) - (b.focalLengthMm||0); });
+
+  var emptyEl = document.getElementById('pickEmpty');
+  if (!pickCamsCache.length || !pickLensesCache.length){
+    emptyEl.classList.remove('hidden');
+    camSelect.innerHTML = ''; lensSelect.innerHTML = '';
+    document.getElementById('pickInfoPanel').innerHTML = '';
+    lastCandidates = [];
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  camSelect.innerHTML = pickCamsCache.map(function(c){
+    return '<option value="'+c.id+'">'+escXml(c.maker+' '+c.model)+'（'+escXml(c.sensorSize||'-')+'）</option>';
+  }).join('');
+  lensSelect.innerHTML = pickLensesCache.map(function(l){
+    return '<option value="'+l.id+'">'+escXml(l.maker+' '+l.model)+'（f'+escXml(l.focalLengthMm||'-')+'mm）</option>';
+  }).join('');
+
+  /* 直近に要件入力で選んだカメラがあればデフォルト選択に反映 */
+  if (calcSelectedCamera && pickCamsCache.some(function(c){ return c.id === calcSelectedCamera.id; })){
+    camSelect.value = calcSelectedCamera.id;
+  } else if (pickCamsCache.some(function(c){ return c.id === keepCam; })){
+    camSelect.value = keepCam;
+  }
+  if (pickLensesCache.some(function(l){ return l.id === keepLens; })){
+    lensSelect.value = keepLens;
+  }
+
+  updatePickInfo();
+}
+
+function updatePickInfo(){
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var minDefect = parseFloat(document.getElementById('minDefect').value) || 0;
+  var resFactor = getResFactor();
+
+  var cam = pickCamsCache.find(function(c){ return c.id === document.getElementById('pickCameraSelect').value; });
+  var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
+  var panel = document.getElementById('pickInfoPanel');
+
+  if (!cam || !lens){
+    panel.innerHTML = '';
+    lastCandidates = [];
+    return;
+  }
+
+  var mountOk = lens.mount === cam.mount;
+  var mountBadge = mountOk
+    ? '<span class="badge ok">✓ '+escXml(cam.mount)+'適合</span>'
+    : '<span class="badge adapter">要'+escXml(cam.mount)+'→'+escXml(lens.mount)+'アダプター</span>';
+
+  var resPerPixel = (cam.pixelsH && fovX) ? (fovX/cam.pixelsH) : 0;
+  var pxPerDefect = (resPerPixel && minDefect) ? (minDefect/resPerPixel) : null;
+  var resWarn = pxPerDefect !== null && pxPerDefect < resFactor;
+  var resBadge = resWarn ? ' <span class="badge adapter" title="最小検出サイズに対し画素が不足する可能性">分解能要確認</span>' : '';
+
+  var magnification = (cam.sensorWidthMm && fovX) ? (cam.sensorWidthMm / fovX) : 0;
+  var effectiveFNo = lens.fNoMin ? (lens.fNoMin * (1 + magnification)) : 0;
+
+  var isTele = lens.lensType === 'テレセントリック';
+  var teleOk = true;
+  if (isTele && lens.telecentricWdMm && wd){
+    var teleDiff = Math.abs(wd - lens.telecentricWdMm);
+    teleOk = lens.telecentricRangeMm ? (teleDiff <= lens.telecentricRangeMm) : true;
+  }
+  var teleBadge = isTele ? (' ' + (teleOk ? '<span class="badge ok" title="公称WD '+escXml(lens.telecentricWdMm||'-')+'mm">テレセントリック域内</span>' : '<span class="badge adapter" title="公称WD '+escXml(lens.telecentricWdMm||'-')+'mm ／許容±'+escXml(lens.telecentricRangeMm||'-')+'mm">テレセントリック域外</span>')) : '';
+
+  /* ケラレチェック：カメラのセンサー対角がレンズの対応上限を超えていないか */
+  var vignetteBadge = '';
+  if (lens.maxSensorFormat && FORMAT_DIAG_MM[lens.maxSensorFormat] && cam.sensorWidthMm && cam.sensorHeightMm){
+    var camDiag = Math.sqrt(cam.sensorWidthMm*cam.sensorWidthMm + cam.sensorHeightMm*cam.sensorHeightMm);
+    if (camDiag > FORMAT_DIAG_MM[lens.maxSensorFormat] + 0.2){
+      vignetteBadge = ' <span class="badge adapter" title="カメラセンサー対角 '+camDiag.toFixed(1)+'mm ＞ レンズ対応上限（'+escXml(lens.maxSensorFormat)+'型）">ケラレ注意</span>';
+    }
+  }
+  /* 最短WDチェック */
+  var minWdBadge = '';
+  if (lens.minWdMm && wd && wd < lens.minWdMm){
+    minWdBadge = ' <span class="badge adapter" title="入力WD '+wd+'mm ＜ 最至近撮影距離 '+escXml(lens.minWdMm)+'mm">最短WD未満</span>';
+  }
+
+  panel.innerHTML = '<div class="readout-grid" style="grid-template-columns:repeat(3,1fr);">'
+    + '<div class="readout"><div class="k">マウント</div><div class="v" style="font-size:15px;">'+mountBadge+resBadge+teleBadge+vignetteBadge+minWdBadge+'</div></div>'
+    + '<div class="readout"><div class="k">実効F値</div><div class="v">'+(effectiveFNo?('f/'+effectiveFNo.toFixed(1)):'—')+'</div></div>'
+    + '<div class="readout"><div class="k">画素数</div><div class="v" style="font-size:15px;">'+(cam.pixelsH?escXml(cam.pixelsH+' × '+cam.pixelsV):'-')+'</div></div>'
+    + '</div>';
+
+  lastCandidates = [{cam:cam, lens:lens, mountOk:mountOk, resWarn:resWarn, effectiveFNo:effectiveFNo, isTele:isTele, teleOk:teleOk}];
+}
+
+document.getElementById('pickCameraSelect').addEventListener('change', updatePickInfo);
+document.getElementById('pickLensSelect').addEventListener('change', updatePickInfo);
+
+document.getElementById('pickCopyDslBtn').addEventListener('click', async function(){
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var cam = pickCamsCache.find(function(c){ return c.id === document.getElementById('pickCameraSelect').value; });
+  var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
+  if (!cam || !lens){ alert('カメラとレンズを選択してください。'); return; }
+  var qty = Math.max(1, Math.round(parseFloat(document.getElementById('pickQty').value) || 1));
+  var singleDsl = buildComboDSL(cam, lens, wd, fovX, fovY);
+  var dsl = Array(qty).fill(singleDsl).join('\n\n'); /* 数量ぶんループ（DSLルールに準拠） */
+  var ok = await copyTextWithFallback(dsl);
+  if (ok) showToast('DSLスニペットをコピーしました（' + qty + 'セット分）。FA構成図DSLツールのDSL入力欄に貼り付けてください。');
+});
+
+document.getElementById('pickAddEstBtn').addEventListener('click', async function(){
+  var cam = pickCamsCache.find(function(c){ return c.id === document.getElementById('pickCameraSelect').value; });
+  var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
+  if (!cam || !lens){ alert('カメラとレンズを選択してください。'); return; }
+  var qty = parseFloat(document.getElementById('pickQty').value) || 1;
+
+  var camCategory = cam.cameraType === 'ライン' ? 'ラインカメラ' : (cam.cameraType === '3D' ? '3Dカメラ' : 'エリアカメラ');
+  await dbPut('estimateItems', {id:uid(), category:camCategory, label: cam.maker+' '+cam.model, qty:qty, unitPrice: cam.unitPrice||0});
+  await dbPut('estimateItems', {id:uid(), category:'レンズ', label: lens.maker+' '+lens.model, qty:qty, unitPrice: lens.unitPrice||0});
+
+  await renderEstimate();
+  showToast('見積もりに追加しました。「見積もり」タブでご確認ください。');
+});
+
+/* ---------- 動体ブレ・露光時間計算 ---------- */
+var lastExposureUs = 0; /* サイクルタイム計算の「撮像時間」に引き渡す用 */
+
+document.querySelectorAll('#motionModeSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#motionModeSeg button').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    document.getElementById('motionRotateFields').classList.toggle('hidden', b.dataset.val !== 'rotate');
+    document.getElementById('motionLinearFields').classList.toggle('hidden', b.dataset.val !== 'linear');
+    computeMotionBlur();
+  });
+});
+
+function computeMotionBlur(){
+  var mode = document.querySelector('#motionModeSeg button.active').dataset.val;
+  var v = 0; /* mm/s */
+  if (mode === 'rotate'){
+    var d = parseFloat(document.getElementById('mb_diameter').value) || 0;
+    var t = parseFloat(document.getElementById('mb_period').value) || 0;
+    v = t > 0 ? (Math.PI * d) / t : 0;
+  } else {
+    var s = parseFloat(document.getElementById('mb_speed').value) || 0;
+    var unit = document.getElementById('mb_speedUnit').value;
+    v = (unit === 'mpm') ? (s * 1000 / 60) : s;
+  }
+  var allowPx = parseFloat(document.getElementById('mb_allowPx').value) || 0;
+  var warnEl = document.getElementById('mbWarn');
+
+  document.getElementById('mbSpeedOut').innerHTML = v ? v.toFixed(1) + '<span class="unit">mm/s</span>' : '—<span class="unit">mm/s</span>';
+
+  if (!lastResolutionMm){
+    document.getElementById('mbBlurOut').innerHTML = '—<span class="unit">mm</span>';
+    document.getElementById('mbExposureOut').innerHTML = '—<span class="unit">µs</span>';
+    warnEl.textContent = '分解能が未計算です。上の「計算する」で画素数まで入力すると連動します。';
+    warnEl.className = 'status-msg show err';
+    lastExposureUs = 0;
+    return;
+  }
+  warnEl.className = 'status-msg';
+
+  var blurMm = allowPx * lastResolutionMm;
+  document.getElementById('mbBlurOut').innerHTML = blurMm.toFixed(4) + '<span class="unit">mm</span>';
+
+  if (v > 0){
+    var expSec = blurMm / v;
+    var expUs = expSec * 1e6;
+    lastExposureUs = expUs;
+    var label = expUs >= 1000 ? (expUs/1000).toFixed(2) + '<span class="unit">ms</span>' : expUs.toFixed(1) + '<span class="unit">µs</span>';
+    document.getElementById('mbExposureOut').innerHTML = label;
+  } else {
+    document.getElementById('mbExposureOut').innerHTML = '—<span class="unit">µs</span>';
+    lastExposureUs = 0;
+  }
+}
+
+['mb_diameter','mb_period','mb_speed','mb_speedUnit','mb_allowPx'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', computeMotionBlur);
+  document.getElementById(id).addEventListener('change', computeMotionBlur);
+});
+
+/* ---------- サイクルタイム内訳 ---------- */
+document.getElementById('ctPullExposureBtn').addEventListener('click', function(){
+  if (lastExposureUs){
+    document.getElementById('ct_exposure').value = (lastExposureUs/1000).toFixed(3);
+    computeCycleTime();
+  } else {
+    alert('先に「動体ブレ・露光時間計算」で露光時間を算出してください。');
+  }
+});
+
+function cycleSegHtml(cls, val, label, scaleMax){
+  if (val <= 0) return '';
+  var pct = (val/scaleMax*100);
+  var text = pct > 9 ? (label + ' ' + val.toFixed(val < 1 ? 2 : 0) + 'ms') : '';
+  return '<div class="seg '+cls+'" style="width:'+pct+'%">'+text+'</div>';
+}
+
+function computeCycleTime(){
+  var exposure = parseFloat(document.getElementById('ct_exposure').value) || 0;
+  var processing = parseFloat(document.getElementById('ct_processing').value) || 0;
+  var output = parseFloat(document.getElementById('ct_output').value) || 0;
+  var takt = parseFloat(document.getElementById('ct_takt').value) || 0;
+  var total = exposure + processing + output;
+  var scaleMax = Math.max(total, takt) * 1.05 || 1;
+
+  var html = cycleSegHtml('exposure', exposure, '撮像', scaleMax)
+           + cycleSegHtml('processing', processing, '処理', scaleMax)
+           + cycleSegHtml('output', output, '出力', scaleMax);
+
+  if (takt > 0 && takt <= scaleMax){
+    var taktPct = (takt/scaleMax*100);
+    html += '<div class="cycle-target-line" style="left:'+taktPct+'%"></div>';
+    html += '<div class="cycle-target-label" style="left:'+taktPct+'%">目標 '+takt+'ms</div>';
+  }
+  document.getElementById('cycleBar').innerHTML = html;
+  document.getElementById('cycleTotalOut').innerHTML = total.toFixed(2) + '<span class="unit">ms</span>';
+
+  var badge = document.getElementById('cycleStatusBadge');
+  if (takt > 0){
+    if (total <= takt){
+      badge.className = 'badge ok';
+      badge.textContent = '余裕あり（目標まで ' + (takt-total).toFixed(1) + 'ms）';
+    } else {
+      badge.className = 'badge over';
+      badge.textContent = '目標タクト超過（+' + (total-takt).toFixed(1) + 'ms）';
+    }
+  } else {
+    badge.className = 'badge'; badge.textContent = '';
+  }
+}
+
+['ct_exposure','ct_processing','ct_output','ct_takt'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', computeCycleTime);
+});
+computeCycleTime();
+
+/* ---------- 案件情報・客先仕様メモ（IndexedDB自動保存） ---------- */
+var NOTES_ID = 'currentProjectNotes';
+var notesSaveTimer = null;
+
+function collectNotes(){
+  return {
+    id: NOTES_ID,
+    customer: document.getElementById('pn_customer').value,
+    target: document.getElementById('pn_target').value,
+    env: document.getElementById('pn_env').value,
+    note: document.getElementById('pn_note').value,
+    updatedAt: new Date().toISOString()
+  };
+}
+async function saveNotes(){
+  await dbPut('meta', collectNotes());
+  var el = document.getElementById('notesSaveStatus');
+  el.textContent = '保存しました（' + new Date().toLocaleTimeString('ja-JP') + '）';
+  el.className = 'autosave-note saved';
+}
+async function loadNotes(){
+  try{
+    var all = await dbGetAll('meta');
+    var rec = all.find(function(r){ return r.id === NOTES_ID; });
+    if (rec){
+      document.getElementById('pn_customer').value = rec.customer || '';
+      document.getElementById('pn_target').value = rec.target || '';
+      document.getElementById('pn_env').value = rec.env || '';
+      document.getElementById('pn_note').value = rec.note || '';
+    }
+  } catch(ex){ /* 初回は無視 */ }
+}
+['pn_customer','pn_target','pn_env','pn_note'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', function(){
+    clearTimeout(notesSaveTimer);
+    document.getElementById('notesSaveStatus').className = 'autosave-note';
+    document.getElementById('notesSaveStatus').textContent = '入力中…';
+    notesSaveTimer = setTimeout(saveNotes, 700);
+  });
+});
+loadNotes();
+
+document.getElementById('calcBtn').addEventListener('click', runCalc);
+['fovX','fovY','wd','sensorPreset','pixX','pixY','minDefect','resFactor','mountSel'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', runCalc);
+  document.getElementById(id).addEventListener('change', runCalc);
+});
+
+runCalc();
+
+/* ===================== IndexedDB 基盤 ===================== */
+var DB_NAME = 'optics_selector_db';
+var DB_VERSION = 4;
+var _dbPromise = null;
+
+function openDB(){
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = new Promise(function(resolve, reject){
+    var req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(e){
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('cameras')) db.createObjectStore('cameras', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('lenses')) db.createObjectStore('lenses', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('otherParts')) db.createObjectStore('otherParts', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('estimateItems')) db.createObjectStore('estimateItems', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', {keyPath:'id'});
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+  return _dbPromise;
+}
+function dbGetAll(store){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, 'readonly');
+      var req = tx.objectStore(store).getAll();
+      req.onsuccess = function(){ resolve(req.result || []); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+function dbPut(store, obj){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(obj);
+      tx.oncomplete = function(){ resolve(obj); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  });
+}
+function dbDelete(store, id){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(id);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  });
+}
+function uid(){ return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+async function updateMasterNavCount(){
+  var cams = await dbGetAll('cameras');
+  var lenses = await dbGetAll('lenses');
+  var parts = await dbGetAll('otherParts');
+  document.getElementById('navMasterCount').textContent = cams.length + lenses.length + parts.length;
+}
+
+/* ===================== 共通：CSV ===================== */
+function csvEscape(v){
+  if (v === undefined || v === null) return '';
+  var s = String(v);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function toCSV(rows, headers){
+  var lines = [headers.join(',')];
+  rows.forEach(function(r){
+    lines.push(headers.map(function(h){ return csvEscape(r[h]); }).join(','));
+  });
+  return lines.join('\r\n');
+}
+function parseCSVLine(line){
+  var result = [], cur = '', inQuotes = false;
+  for (var i=0;i<line.length;i++){
+    var c = line[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (line[i+1] === '"'){ cur += '"'; i++; } else { inQuotes = false; }
+      } else { cur += c; }
+    } else {
+      if (c === '"'){ inQuotes = true; }
+      else if (c === ','){ result.push(cur); cur=''; }
+      else { cur += c; }
+    }
+  }
+  result.push(cur);
+  return result;
+}
+function parseCSV(text){
+  var lines = text.split(/\r\n|\n|\r/).filter(function(l){ return l.length > 0; });
+  if (!lines.length) return [];
+  var headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(function(line){
+    var vals = parseCSVLine(line);
+    var obj = {};
+    headers.forEach(function(h,i){ obj[h] = vals[i] !== undefined ? vals[i] : ''; });
+    return obj;
+  });
+}
+async function copyTextWithFallback(text){
+  if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext){
+    try{ await navigator.clipboard.writeText(text); return true; } catch(ex){ /* フォールバックへ */ }
+  }
+  window.prompt('自動コピーできませんでした。下のテキストを選択してコピーしてください（Ctrl+C / Cmd+C）:', text);
+  return false;
+}
+function camDSLType(cam){
+  return cam.cameraType === 'ライン' ? 'ラインカメラ' : (cam.cameraType === '3D' ? '3Dカメラ' : 'エリアカメラ');
+}
+function buildComboDSL(cam, lens, wd, fovX, fovY){
+  var lensAttrs = ['型式:' + lens.maker + ' ' + lens.model];
+  if (lens.focalLengthMm) lensAttrs.push('焦点距離:' + lens.focalLengthMm + 'mm');
+  if (lens.lensType === 'テレセントリック') lensAttrs.push('種別:テレセントリック');
+  var camAttrs = ['型式:' + cam.maker + ' ' + cam.model];
+  if (wd) camAttrs.push('WD:' + wd + 'mm');
+  if (fovX && fovY) camAttrs.push('視野:' + fovX + 'x' + fovY + 'mm');
+  if (cam.pixelsH) camAttrs.push('画素数:' + cam.pixelsH + 'x' + cam.pixelsV);
+  if (cam.mount) camAttrs.push('マウント:' + cam.mount);
+
+  var lines = ['レンズ(' + lensAttrs.join(',') + ')'];
+  var mountOk = lens.mount === cam.mount;
+  if (!mountOk){
+    /* FA構成図DSLツールのドメインルール：マウントが合わない場合はレンズ→アダプター→カメラ */
+    lines.push(' -> アダプター(変換:' + (lens.mount||'?') + '→' + (cam.mount||'?') + ')');
+  }
+  lines.push(' -> ' + camDSLType(cam) + '(' + camAttrs.join(',') + ')');
+  return lines.join('\n');
+}
+
+/* ===================== 提案書プレビュー ===================== */
+async function buildProposalHTML(){
+  var projectName = document.getElementById('topProjectName').value.trim() || '（案件名未入力）';
+  var customer = document.getElementById('pn_customer').value.trim();
+  var target = document.getElementById('pn_target').value.trim();
+  var env = document.getElementById('pn_env').value.trim();
+  var note = document.getElementById('pn_note').value.trim();
+
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var angle = (fovX && wd) ? (2 * Math.atan(fovX / (2*wd)) * 180 / Math.PI) : 0;
+
+  var best = lastCandidates && lastCandidates[0];
+  var configBlock = '<div class="prop-empty">選定計算タブで条件を入力し、候補が確定すると推奨構成がここに表示されます。</div>';
+  var focalForDisplay = '-', resForDisplay = '-', effFNoForDisplay = '-';
+
+  if (best){
+    focalForDisplay = best.lens.focalLengthMm + 'mm';
+    var resPerPixel = best.cam.pixelsH ? (fovX / best.cam.pixelsH) : 0;
+    resForDisplay = resPerPixel ? (resPerPixel*1000).toFixed(1) + 'µm/px' : '-';
+    effFNoForDisplay = best.effectiveFNo ? 'f/' + best.effectiveFNo.toFixed(1) : '-';
+    var mountVal = best.mountOk
+      ? escXml(best.cam.mount) + '（適合・直結可）'
+      : escXml(best.lens.mount) + ' → ' + escXml(best.cam.mount) + '（変換アダプター使用）';
+    var lensTypeRow = best.isTele
+      ? '<tr><td>レンズ種別</td><td>テレセントリック'+(best.lens.telecentricWdMm ? '（公称WD '+escXml(best.lens.telecentricWdMm)+'mm'+(best.lens.telecentricRangeMm?'　許容±'+escXml(best.lens.telecentricRangeMm)+'mm':'')+(best.teleOk?'　域内':'　域外要確認') +'）' : '') +'</td></tr>'
+      : '';
+    configBlock = '<table class="prop-kv-table">'
+      + '<tr><td>カメラ</td><td>'+escXml(best.cam.maker+' '+best.cam.model)+'</td></tr>'
+      + '<tr><td>レンズ</td><td>'+escXml(best.lens.maker+' '+best.lens.model)+'</td></tr>'
+      + '<tr><td>マウント</td><td>'+mountVal+'</td></tr>'
+      + lensTypeRow
+      + '</table>';
+  }
+
+  var diagramSvg = drawRayDiagram(fovX, wd).replace('width="100%"', 'width="360"');
+
+  var ctExp = parseFloat(document.getElementById('ct_exposure').value) || 0;
+  var ctProc = parseFloat(document.getElementById('ct_processing').value) || 0;
+  var ctOut = parseFloat(document.getElementById('ct_output').value) || 0;
+  var ctTakt = parseFloat(document.getElementById('ct_takt').value) || 0;
+  var ctTotal = ctExp + ctProc + ctOut;
+
+  var items = await dbGetAll('estimateItems');
+  var estTotal = 0;
+  var estRowsHtml = items.map(function(it){
+    var subtotal = (it.qty||0) * (it.unitPrice||0);
+    estTotal += subtotal;
+    return '<tr><td>'+escXml(it.category)+'</td><td>'+escXml(it.label)+'</td><td>'+it.qty+'</td><td>¥'+Number(it.unitPrice||0).toLocaleString('ja-JP')+'</td><td>¥'+subtotal.toLocaleString('ja-JP')+'</td></tr>';
+  }).join('');
+
+  var today = new Date().toLocaleDateString('ja-JP');
+  var refNo = 'REF-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+
+  return ''
+    + '<div class="prop-topbar"></div>'
+    + '<div class="prop-body">'
+
+    + '<div class="prop-header">'
+    + '<div>'
+    +   '<div class="prop-brand"><div class="prop-brand-mark"></div><div class="prop-brand-word">Optics Selector</div></div>'
+    +   '<div class="prop-title">'+escXml(projectName)+'</div>'
+    +   '<div class="prop-sub">光学系選定・お見積りご提案（概算）</div>'
+    + '</div>'
+    + '<div class="prop-meta">作成日：<b>'+today+'</b><br>整理番号：<b>'+refNo+'</b></div>'
+    + '</div>'
+
+    + ((customer||target||env) ? (
+      '<div class="prop-section">'
+      + '<div class="prop-label">案件情報</div>'
+      + '<table class="prop-kv-table">'
+      + (customer ? '<tr><td>客先名</td><td>'+escXml(customer)+'</td></tr>' : '')
+      + (target ? '<tr><td>検査対象・工程</td><td>'+escXml(target)+'</td></tr>' : '')
+      + (env ? '<tr><td>設置環境</td><td>'+escXml(env)+'</td></tr>' : '')
+      + '</table>'
+      + (note ? '<div class="prop-note-box">'+escXml(note)+'</div>' : '')
+      + '</div>'
+    ) : (note ? '<div class="prop-section"><div class="prop-label">案件情報</div><div class="prop-note-box">'+escXml(note)+'</div></div>' : ''))
+
+    + '<div class="prop-section">'
+    + '<div class="prop-label">推奨構成</div>'
+    + configBlock
+    + '</div>'
+
+    + '<div class="prop-section">'
+    + '<div class="prop-label">撮像条件</div>'
+    + '<table class="prop-kv-table">'
+    + '<tr><td>視野（FOV）</td><td>'+fovX+' × '+fovY+'<span class="unit">mm</span></td></tr>'
+    + '<tr><td>ワークディスタンス</td><td>'+wd+'<span class="unit">mm</span></td></tr>'
+    + '<tr><td>画角</td><td>'+angle.toFixed(1)+'<span class="unit">°</span></td></tr>'
+    + '<tr><td>推奨焦点距離</td><td>'+focalForDisplay+'</td></tr>'
+    + '<tr><td>実効F値</td><td>'+effFNoForDisplay+'</td></tr>'
+    + '<tr class="highlight"><td>分解能</td><td>'+resForDisplay+'</td></tr>'
+    + '</table>'
+    + '<div class="prop-diagram" style="margin-top:12px;">'+diagramSvg+'</div>'
+    + '</div>'
+
+    + (ctTotal ? (
+      '<div class="prop-section">'
+      + '<div class="prop-label">サイクルタイム（概算）</div>'
+      + '<table class="prop-kv-table">'
+      + '<tr><td>撮像</td><td>'+ctExp+'<span class="unit">ms</span></td></tr>'
+      + '<tr><td>処理</td><td>'+ctProc+'<span class="unit">ms</span></td></tr>'
+      + '<tr><td>結果出力</td><td>'+ctOut+'<span class="unit">ms</span></td></tr>'
+      + '<tr class="highlight"><td>合計</td><td>'+ctTotal.toFixed(1)+'<span class="unit">ms</span></td></tr>'
+      + (ctTakt ? '<tr><td>目標タクトタイム</td><td style="color:'+(ctTotal<=ctTakt?'#1D4FC0':'#C0392B')+';">'+ctTakt+'<span class="unit">ms</span>　'+(ctTotal<=ctTakt ? '（余裕 '+(ctTakt-ctTotal).toFixed(1)+'ms）' : '（超過 +'+(ctTotal-ctTakt).toFixed(1)+'ms）')+'</td></tr>' : '')
+      + '</table>'
+      + '</div>'
+    ) : '')
+
+    + (items.length ? (
+      '<div class="prop-section">'
+      + '<div class="prop-label">概算お見積り</div>'
+      + '<table class="prop-table"><thead><tr><th>種別</th><th>型式</th><th>数量</th><th>単価</th><th>小計</th></tr></thead><tbody>'
+      + estRowsHtml
+      + '<tr class="prop-total-row"><td colspan="4">概算合計</td><td>¥'+estTotal.toLocaleString('ja-JP')+'</td></tr>'
+      + '</tbody></table>'
+      + '</div>'
+    ) : '')
+
+    + '</div>'
+    + '<div class="prop-footer">'
+    + '<div class="pf-brand"><div class="prop-brand-mark" style="width:16px;height:16px;"></div>Optics Selector</div>'
+    + '<div>※本資料は概算のご提案です。正式なお見積りとは異なる場合があります。詳細は別途正式見積書にてご案内いたします。</div>'
+    + '</div>';
+}
+
+async function openProposal(){
+  document.getElementById('proposalSheet').innerHTML = await buildProposalHTML();
+  document.getElementById('proposalOverlay').classList.remove('hidden');
+}
+function closeProposal(){
+  document.getElementById('proposalOverlay').classList.add('hidden');
+}
+document.getElementById('proposalBtn').addEventListener('click', openProposal);
+document.getElementById('proposalCloseBtn').addEventListener('click', closeProposal);
+document.getElementById('proposalPrintBtn').addEventListener('click', function(){ window.print(); });
+
+function downloadBlob(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+}
+function showStatus(elId, text, ok){
+  var el = document.getElementById(elId);
+  el.textContent = text;
+  el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+  setTimeout(function(){ el.className = 'status-msg'; }, 2600);
+}
+function showToast(text){
+  var host = document.getElementById('toastHost');
+  var el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  host.appendChild(el);
+  requestAnimationFrame(function(){ el.classList.add('show'); });
+  setTimeout(function(){
+    el.classList.remove('show');
+    setTimeout(function(){ el.remove(); }, 250);
+  }, 3200);
+}
+function escXml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* 2段階実行：1回目のタップで赤くなり、3秒以内の2回目のタップで実行。confirm()が使えない環境でも動く */
+function armedAction(el, message, onRun){
+  if (el.classList.contains('armed')){
+    clearTimeout(el._armTimer);
+    el.classList.remove('armed');
+    onRun();
+    return;
+  }
+  el.classList.add('armed');
+  showToast(message);
+  el._armTimer = setTimeout(function(){ el.classList.remove('armed'); }, 3000);
+}
+function armedDelete(el, onDelete){
+  armedAction(el, 'もう一度タップすると削除します。', onDelete);
+}
+
+/* ===================== カメラマスタ ===================== */
+var CAMERA_HEADERS = ['id','maker','model','cameraType','sensorSize','sensorWidthMm','sensorHeightMm','pixelsH','pixelsV','pixelPitchUm','mount','shutterType','interface','maxFps','unitPrice','note','url'];
+var CAMERA_PRESETS = [
+  {maker:'Vieworks', model:'VC-1234MX', cameraType:'エリア', sensorSize:'1/1.8"', sensorWidthMm:7.18, sensorHeightMm:5.32, pixelsH:2448, pixelsV:2048, pixelPitchUm:2.9, mount:'C', shutterType:'グローバル', interface:'GigE', maxFps:75, note:'標準的な外観検査向けエリアカメラ', url:''},
+  {maker:'OMRON Sentech', model:'STC-MCS500U3V', cameraType:'エリア', sensorSize:'2/3"', sensorWidthMm:8.8, sensorHeightMm:6.6, pixelsH:2448, pixelsV:2048, pixelPitchUm:3.45, mount:'C', shutterType:'グローバル', interface:'USB3', maxFps:36, note:'', url:''},
+  {maker:'Basler', model:'raL2048-48gm', cameraType:'ライン', sensorSize:'-', sensorWidthMm:0, sensorHeightMm:0, pixelsH:2048, pixelsV:1, pixelPitchUm:7, mount:'M42', shutterType:'グローバル', interface:'GigE', maxFps:48000, note:'ラインスキャン用', url:''}
+];
+var editingCameraId = null;
+
+function cameraFormValues(){
+  return {
+    maker: document.getElementById('cf_maker').value.trim(),
+    model: document.getElementById('cf_model').value.trim(),
+    cameraType: document.getElementById('cf_cameraType').value,
+    sensorSize: document.getElementById('cf_sensorSize').value.trim(),
+    sensorWidthMm: parseFloat(document.getElementById('cf_sensorWidthMm').value) || 0,
+    sensorHeightMm: parseFloat(document.getElementById('cf_sensorHeightMm').value) || 0,
+    pixelsH: parseInt(document.getElementById('cf_pixelsH').value) || 0,
+    pixelsV: parseInt(document.getElementById('cf_pixelsV').value) || 0,
+    pixelPitchUm: parseFloat(document.getElementById('cf_pixelPitchUm').value) || 0,
+    mount: document.getElementById('cf_mount').value,
+    shutterType: document.getElementById('cf_shutterType').value,
+    interface: document.getElementById('cf_interface').value.trim(),
+    maxFps: parseFloat(document.getElementById('cf_maxFps').value) || 0,
+    unitPrice: parseFloat(document.getElementById('cf_unitPrice').value) || 0,
+    note: document.getElementById('cf_note').value.trim(),
+    url: document.getElementById('cf_url').value.trim()
+  };
+}
+function fillCameraForm(cam){
+  document.getElementById('cf_maker').value = cam.maker || '';
+  document.getElementById('cf_model').value = cam.model || '';
+  document.getElementById('cf_cameraType').value = cam.cameraType || 'エリア';
+  document.getElementById('cf_sensorSize').value = cam.sensorSize || '';
+  document.getElementById('cf_sensorWidthMm').value = cam.sensorWidthMm || '';
+  document.getElementById('cf_sensorHeightMm').value = cam.sensorHeightMm || '';
+  document.getElementById('cf_pixelsH').value = cam.pixelsH || '';
+  document.getElementById('cf_pixelsV').value = cam.pixelsV || '';
+  document.getElementById('cf_pixelPitchUm').value = cam.pixelPitchUm || '';
+  document.getElementById('cf_mount').value = cam.mount || 'C';
+  document.getElementById('cf_shutterType').value = cam.shutterType || 'グローバル';
+  document.getElementById('cf_interface').value = cam.interface || '';
+  document.getElementById('cf_maxFps').value = cam.maxFps || '';
+  document.getElementById('cf_unitPrice').value = cam.unitPrice || '';
+  document.getElementById('cf_note').value = cam.note || '';
+  document.getElementById('cf_url').value = cam.url || '';
+}
+function clearCameraForm(){ fillCameraForm({}); }
+
+function openCameraForm(cam){
+  editingCameraId = cam ? cam.id : null;
+  document.getElementById('cameraFormTitle').textContent = cam ? 'カメラを編集：' + cam.maker + ' ' + cam.model : 'カメラを新規登録';
+  if (cam) fillCameraForm(cam); else clearCameraForm();
+  document.getElementById('cameraFormPanel').classList.remove('hidden');
+  document.getElementById('cf_maker').focus();
+}
+function closeCameraForm(){
+  editingCameraId = null;
+  document.getElementById('cameraFormPanel').classList.add('hidden');
+}
+
+async function saveCamera(){
+  var v = cameraFormValues();
+  if (!v.maker || !v.model){
+    showStatus('cameraStatus', 'メーカー名と型式は必須です。', false);
+    return;
+  }
+  var existing = await dbGetAll('cameras');
+  var dup = existing.find(function(c){
+    return c.id !== editingCameraId && c.maker.trim().toLowerCase() === v.maker.trim().toLowerCase() && c.model.trim().toLowerCase() === v.model.trim().toLowerCase();
+  });
+  if (dup) showToast('注意：同じメーカー・型式「'+v.maker+' '+v.model+'」が既に登録されています（重複して登録されました。不要な方は削除してください）。');
+
+  v.id = editingCameraId || uid();
+  await dbPut('cameras', v);
+  closeCameraForm();
+  showStatus('cameraStatus', (editingCameraId ? '更新しました：' : '登録しました：') + v.maker + ' ' + v.model, true);
+  renderCameras();
+}
+async function deleteCamera(id, label){
+  await dbDelete('cameras', id);
+  showStatus('cameraStatus', '削除しました：' + label, true);
+  renderCameras();
+}
+async function seedCamerasIfEmpty(){
+  var all = await dbGetAll('cameras');
+  if (all.length === 0){
+    for (var i=0;i<CAMERA_PRESETS.length;i++){
+      var c = Object.assign({id: uid()}, CAMERA_PRESETS[i]);
+      await dbPut('cameras', c);
+    }
+  }
+}
+async function renderCameras(){
+  var all = await dbGetAll('cameras');
+  var q = document.getElementById('cameraSearch').value.trim().toLowerCase();
+  var mountFilter = document.getElementById('cameraMountFilter').value;
+  var rows = all.filter(function(c){
+    var matchQ = !q || (c.maker+' '+c.model).toLowerCase().indexOf(q) > -1;
+    var matchMount = !mountFilter || c.mount === mountFilter;
+    return matchQ && matchMount;
+  });
+  rows.sort(function(a,b){ return (a.maker+a.model).localeCompare(b.maker+b.model); });
+
+  document.getElementById('cameraCount').textContent = all.length + '件';
+  await updateMasterNavCount();
+  document.getElementById('cameraEmpty').classList.toggle('hidden', rows.length > 0);
+  await refreshCalcCameraOptions();
+  refreshPickOptions();
+
+  var tbody = document.getElementById('cameraTableBody');
+  tbody.innerHTML = rows.map(function(c){
+    return '<tr class="row-hover">'
+      + '<td class="model-cell">'+escXml(c.model)+'<span class="model-sub">'+escXml(c.maker)+'</span></td>'
+      + '<td>'+escXml(c.cameraType)+'</td>'
+      + '<td>'+escXml(c.sensorSize)+'</td>'
+      + '<td>'+ (c.pixelsH?escXml(c.pixelsH+' × '+c.pixelsV):'-') +'</td>'
+      + '<td><span class="badge ok">'+escXml(c.mount)+'</span></td>'
+      + '<td>'+escXml(c.interface)+'</td>'
+      + '<td><div class="row-actions">'
+        + '<div class="icon-btn" data-edit="'+c.id+'" title="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><path d="M9 15l10-10M13 3h6v6"/></svg></div>'
+        + '<div class="icon-btn" data-del="'+c.id+'" title="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"/></svg></div>'
+      + '</div></td>'
+      + '</tr>';
+  }).join('');
+
+  tbody.querySelectorAll('[data-edit]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var cam = all.find(function(c){ return c.id === el.dataset.edit; });
+      if (cam) openCameraForm(cam);
+    });
+  });
+  tbody.querySelectorAll('[data-del]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var cam = all.find(function(c){ return c.id === el.dataset.del; });
+      if (cam) armedDelete(el, function(){ deleteCamera(cam.id, cam.maker+' '+cam.model); });
+    });
+  });
+}
+
+document.getElementById('cameraAddBtn').addEventListener('click', function(){ openCameraForm(null); });
+document.getElementById('cameraCancelBtn').addEventListener('click', closeCameraForm);
+document.getElementById('cameraSaveBtn').addEventListener('click', saveCamera);
+document.getElementById('cameraSearch').addEventListener('input', renderCameras);
+document.getElementById('cameraMountFilter').addEventListener('change', renderCameras);
+
+/* ===================== レンズマスタ ===================== */
+var LENS_HEADERS = ['id','maker','model','focalLengthMm','fNoMin','fNoMax','maxSensorFormat','mount','lensType','minWdMm','distortionPct','telecentricWdMm','telecentricRangeMm','unitPrice','note','url'];
+/* センサーフォーマット表記 → 対角mm（ケラレ判定用） */
+var FORMAT_DIAG_MM = { '1/3':6.0, '1/2':8.0, '1/1.8':8.9, '2/3':11.0, '1':16.0, 'over1':99 };
+function guessFormatFromText(t){
+  t = String(t||'');
+  if (t.indexOf('1/3') > -1) return '1/3';
+  if (t.indexOf('1/1.8') > -1) return '1/1.8';
+  if (t.indexOf('1/2') > -1) return '1/2';
+  if (t.indexOf('2/3') > -1) return '2/3';
+  if (t.indexOf('4/3') > -1 || t.indexOf('1.1') > -1) return 'over1';
+  if (t.indexOf('1') > -1) return '1';
+  return '';
+}
+var LENS_PRESETS = [
+  {maker:'KOWA', model:'LM16JC10M', focalLengthMm:16, fNoMin:1.8, fNoMax:16, maxSensorFormat:'1/1.8', mount:'C', lensType:'エントセントリック', minWdMm:100, distortionPct:-0.4, telecentricWdMm:0, telecentricRangeMm:0, note:'標準検査用', url:''},
+  {maker:'KEYENCE', model:'CA-LH16', focalLengthMm:16, fNoMin:1.8, fNoMax:16, maxSensorFormat:'1/1.8', mount:'C', lensType:'エントセントリック', minWdMm:100, distortionPct:-0.3, telecentricWdMm:0, telecentricRangeMm:0, note:'高解像度タイプ', url:''},
+  {maker:'Computar', model:'M0814-MP2', focalLengthMm:8, fNoMin:1.4, fNoMax:16, maxSensorFormat:'2/3', mount:'C', lensType:'エントセントリック', minWdMm:100, distortionPct:-1.2, telecentricWdMm:0, telecentricRangeMm:0, note:'広角', url:''}
+];
+var editingLensId = null;
+
+function lensFormValues(){
+  return {
+    maker: document.getElementById('lf_maker').value.trim(),
+    model: document.getElementById('lf_model').value.trim(),
+    focalLengthMm: parseFloat(document.getElementById('lf_focalLengthMm').value) || 0,
+    fNoMin: parseFloat(document.getElementById('lf_fNoMin').value) || 0,
+    fNoMax: parseFloat(document.getElementById('lf_fNoMax').value) || 0,
+    maxSensorFormat: document.getElementById('lf_maxSensorFormat').value,
+    mount: document.getElementById('lf_mount').value,
+    lensType: document.getElementById('lf_lensType').value,
+    minWdMm: parseFloat(document.getElementById('lf_minWdMm').value) || 0,
+    distortionPct: parseFloat(document.getElementById('lf_distortionPct').value) || 0,
+    telecentricWdMm: parseFloat(document.getElementById('lf_telecentricWdMm').value) || 0,
+    telecentricRangeMm: parseFloat(document.getElementById('lf_telecentricRangeMm').value) || 0,
+    unitPrice: parseFloat(document.getElementById('lf_unitPrice').value) || 0,
+    note: document.getElementById('lf_note').value.trim(),
+    url: document.getElementById('lf_url').value.trim()
+  };
+}
+function toggleTelecentricFields(){
+  var isTele = document.getElementById('lf_lensType').value === 'テレセントリック';
+  document.getElementById('lf_telecentricWdWrap').classList.toggle('hidden', !isTele);
+  document.getElementById('lf_telecentricRangeWrap').classList.toggle('hidden', !isTele);
+}
+document.getElementById('lf_lensType').addEventListener('change', toggleTelecentricFields);
+
+function fillLensForm(l){
+  document.getElementById('lf_maker').value = l.maker || '';
+  document.getElementById('lf_model').value = l.model || '';
+  document.getElementById('lf_focalLengthMm').value = l.focalLengthMm || '';
+  document.getElementById('lf_fNoMin').value = l.fNoMin || '';
+  document.getElementById('lf_fNoMax').value = l.fNoMax || '';
+  document.getElementById('lf_maxSensorFormat').value = l.maxSensorFormat || (l.imageCircleSensorSize ? guessFormatFromText(l.imageCircleSensorSize) : '');
+  document.getElementById('lf_mount').value = l.mount || 'C';
+  document.getElementById('lf_lensType').value = l.lensType || 'エントセントリック';
+  document.getElementById('lf_minWdMm').value = l.minWdMm || '';
+  document.getElementById('lf_distortionPct').value = l.distortionPct || '';
+  document.getElementById('lf_telecentricWdMm').value = l.telecentricWdMm || '';
+  document.getElementById('lf_telecentricRangeMm').value = l.telecentricRangeMm || '';
+  document.getElementById('lf_unitPrice').value = l.unitPrice || '';
+  document.getElementById('lf_note').value = l.note || '';
+  document.getElementById('lf_url').value = l.url || '';
+  toggleTelecentricFields();
+}
+function clearLensForm(){ fillLensForm({}); }
+
+function openLensForm(l){
+  editingLensId = l ? l.id : null;
+  document.getElementById('lensFormTitle').textContent = l ? 'レンズを編集：' + l.maker + ' ' + l.model : 'レンズを新規登録';
+  if (l) fillLensForm(l); else clearLensForm();
+  document.getElementById('lensFormPanel').classList.remove('hidden');
+  document.getElementById('lf_maker').focus();
+}
+function closeLensForm(){
+  editingLensId = null;
+  document.getElementById('lensFormPanel').classList.add('hidden');
+}
+
+async function saveLens(){
+  var v = lensFormValues();
+  if (!v.maker || !v.model){
+    showStatus('lensStatus', 'メーカー名と型式は必須です。', false);
+    return;
+  }
+  var existing = await dbGetAll('lenses');
+  var dup = existing.find(function(l){
+    return l.id !== editingLensId && l.maker.trim().toLowerCase() === v.maker.trim().toLowerCase() && l.model.trim().toLowerCase() === v.model.trim().toLowerCase();
+  });
+  if (dup) showToast('注意：同じメーカー・型式「'+v.maker+' '+v.model+'」が既に登録されています（重複して登録されました。不要な方は削除してください）。');
+
+  v.id = editingLensId || uid();
+  await dbPut('lenses', v);
+  closeLensForm();
+  showStatus('lensStatus', (editingLensId ? '更新しました：' : '登録しました：') + v.maker + ' ' + v.model, true);
+  renderLenses();
+}
+async function deleteLens(id, label){
+  await dbDelete('lenses', id);
+  showStatus('lensStatus', '削除しました：' + label, true);
+  renderLenses();
+}
+async function seedLensesIfEmpty(){
+  var all = await dbGetAll('lenses');
+  if (all.length === 0){
+    for (var i=0;i<LENS_PRESETS.length;i++){
+      var l = Object.assign({id: uid()}, LENS_PRESETS[i]);
+      await dbPut('lenses', l);
+    }
+  }
+}
+async function renderLenses(){
+  var all = await dbGetAll('lenses');
+  var q = document.getElementById('lensSearch').value.trim().toLowerCase();
+  var mountFilter = document.getElementById('lensMountFilter').value;
+  var rows = all.filter(function(l){
+    var matchQ = !q || (l.maker+' '+l.model).toLowerCase().indexOf(q) > -1;
+    var matchMount = !mountFilter || l.mount === mountFilter;
+    return matchQ && matchMount;
+  });
+  rows.sort(function(a,b){ return (a.focalLengthMm||0) - (b.focalLengthMm||0); });
+
+  document.getElementById('lensCount').textContent = all.length + '件';
+  await updateMasterNavCount();
+  document.getElementById('lensEmpty').classList.toggle('hidden', rows.length > 0);
+  refreshPickOptions();
+
+  var tbody = document.getElementById('lensTableBody');
+  tbody.innerHTML = rows.map(function(l){
+    var isTele = l.lensType === 'テレセントリック';
+    var teleNote = isTele && l.telecentricWdMm ? '<span class="model-sub">公称WD '+escXml(l.telecentricWdMm)+'mm'+(l.telecentricRangeMm?'　±'+escXml(l.telecentricRangeMm)+'mm':'')+'</span>' : '';
+    return '<tr class="row-hover">'
+      + '<td class="model-cell">'+escXml(l.model)+'<span class="model-sub">'+escXml(l.maker)+'</span></td>'
+      + '<td>'+ (isTele ? '<span class="badge adapter">テレセントリック</span>'+teleNote : '<span class="badge ok">エントセントリック</span>') +'</td>'
+      + '<td>'+ (l.focalLengthMm?escXml(l.focalLengthMm+'mm'):'-') +'</td>'
+      + '<td>'+ (l.fNoMin?('F'+escXml(l.fNoMin)+'〜'+escXml(l.fNoMax)):'-') +'</td>'
+      + '<td><span class="badge ok">'+escXml(l.mount)+'</span></td>'
+      + '<td>'+ (l.minWdMm?escXml(l.minWdMm+'mm'):'-') +'</td>'
+      + '<td><div class="row-actions">'
+        + '<div class="icon-btn" data-edit="'+l.id+'" title="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><path d="M9 15l10-10M13 3h6v6"/></svg></div>'
+        + '<div class="icon-btn" data-del="'+l.id+'" title="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"/></svg></div>'
+      + '</div></td>'
+      + '</tr>';
+  }).join('');
+
+  tbody.querySelectorAll('[data-edit]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var l = all.find(function(x){ return x.id === el.dataset.edit; });
+      if (l) openLensForm(l);
+    });
+  });
+  tbody.querySelectorAll('[data-del]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var l = all.find(function(x){ return x.id === el.dataset.del; });
+      if (l) armedDelete(el, function(){ deleteLens(l.id, l.maker+' '+l.model); });
+    });
+  });
+}
+
+document.getElementById('lensAddBtn').addEventListener('click', function(){ openLensForm(null); });
+document.getElementById('lensCancelBtn').addEventListener('click', closeLensForm);
+document.getElementById('lensSaveBtn').addEventListener('click', saveLens);
+document.getElementById('lensSearch').addEventListener('input', renderLenses);
+document.getElementById('lensMountFilter').addEventListener('change', renderLenses);
+
+/* ===================== 部品マスタ（コントローラー・照明・ケーブル・電源・付属品） ===================== */
+var PART_HEADERS = ['id','category','maker','model','unitPrice','note','url'];
+var PART_PRESETS = [
+  {category:'コントローラー', maker:'CCS', model:'PSB-2432-24VS', unitPrice:38000, note:'照明用コントローラー', url:''},
+  {category:'照明', maker:'CCS', model:'HPR2-100SW', unitPrice:22000, note:'リング照明・白色', url:''},
+  {category:'電源', maker:'COSEL', model:'LFA30F-24', unitPrice:9000, note:'24V/1.3A スイッチング電源', url:''},
+  {category:'ケーブル', maker:'キーエンス', model:'CA-CN5', unitPrice:6500, note:'カメラ用5mケーブル', url:''}
+];
+var editingPartId = null;
+
+function partFormValues(){
+  return {
+    category: document.getElementById('pf_category').value,
+    maker: document.getElementById('pf_maker').value.trim(),
+    model: document.getElementById('pf_model').value.trim(),
+    unitPrice: parseFloat(document.getElementById('pf_unitPrice').value) || 0,
+    note: document.getElementById('pf_note').value.trim(),
+    url: document.getElementById('pf_url').value.trim()
+  };
+}
+function fillPartForm(p){
+  document.getElementById('pf_category').value = p.category || 'コントローラー';
+  document.getElementById('pf_maker').value = p.maker || '';
+  document.getElementById('pf_model').value = p.model || '';
+  document.getElementById('pf_unitPrice').value = p.unitPrice || '';
+  document.getElementById('pf_note').value = p.note || '';
+  document.getElementById('pf_url').value = p.url || '';
+}
+function clearPartForm(){ fillPartForm({}); }
+
+function openPartForm(p){
+  editingPartId = p ? p.id : null;
+  document.getElementById('partFormTitle').textContent = p ? '部品を編集：' + p.maker + ' ' + p.model : '部品を新規登録';
+  if (p) fillPartForm(p); else clearPartForm();
+  document.getElementById('partFormPanel').classList.remove('hidden');
+  document.getElementById('pf_maker').focus();
+}
+function closePartForm(){
+  editingPartId = null;
+  document.getElementById('partFormPanel').classList.add('hidden');
+}
+
+async function savePart(){
+  var v = partFormValues();
+  if (!v.maker || !v.model){
+    showStatus('partStatus', 'メーカー名と型式は必須です。', false);
+    return;
+  }
+  v.id = editingPartId || uid();
+  await dbPut('otherParts', v);
+  closePartForm();
+  showStatus('partStatus', (editingPartId ? '更新しました：' : '登録しました：') + v.maker + ' ' + v.model, true);
+  renderParts();
+}
+async function deletePart(id, label){
+  await dbDelete('otherParts', id);
+  showStatus('partStatus', '削除しました：' + label, true);
+  renderParts();
+}
+async function seedPartsIfEmpty(){
+  var all = await dbGetAll('otherParts');
+  if (all.length === 0){
+    for (var i=0;i<PART_PRESETS.length;i++){
+      var p = Object.assign({id: uid()}, PART_PRESETS[i]);
+      await dbPut('otherParts', p);
+    }
+  }
+}
+async function renderParts(){
+  var all = await dbGetAll('otherParts');
+  var q = document.getElementById('partSearch').value.trim().toLowerCase();
+  var catFilter = document.getElementById('partCategoryFilter').value;
+  var rows = all.filter(function(p){
+    var matchQ = !q || (p.maker+' '+p.model).toLowerCase().indexOf(q) > -1;
+    var matchCat = !catFilter || p.category === catFilter;
+    return matchQ && matchCat;
+  });
+  rows.sort(function(a,b){ return (a.category+a.maker+a.model).localeCompare(b.category+b.maker+b.model); });
+
+  document.getElementById('partCount').textContent = all.length + '件';
+  await updateMasterNavCount();
+  document.getElementById('partEmpty').classList.toggle('hidden', rows.length > 0);
+
+  var tbody = document.getElementById('partTableBody');
+  tbody.innerHTML = rows.map(function(p){
+    return '<tr class="row-hover">'
+      + '<td><span class="badge ok">'+escXml(p.category)+'</span></td>'
+      + '<td class="model-cell">'+escXml(p.model)+'<span class="model-sub">'+escXml(p.maker)+'</span></td>'
+      + '<td>'+ (p.unitPrice ? ('¥'+Number(p.unitPrice).toLocaleString('ja-JP')) : '-') +'</td>'
+      + '<td>'+escXml(p.note||'-')+'</td>'
+      + '<td><div class="row-actions">'
+        + '<div class="icon-btn" data-edit="'+p.id+'" title="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><path d="M9 15l10-10M13 3h6v6"/></svg></div>'
+        + '<div class="icon-btn" data-del="'+p.id+'" title="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"/></svg></div>'
+      + '</div></td>'
+      + '</tr>';
+  }).join('');
+
+  tbody.querySelectorAll('[data-edit]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var p = all.find(function(x){ return x.id === el.dataset.edit; });
+      if (p) openPartForm(p);
+    });
+  });
+  tbody.querySelectorAll('[data-del]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var p = all.find(function(x){ return x.id === el.dataset.del; });
+      if (p) armedDelete(el, function(){ deletePart(p.id, p.maker+' '+p.model); });
+    });
+  });
+}
+
+document.getElementById('partAddBtn').addEventListener('click', function(){ openPartForm(null); });
+document.getElementById('partCancelBtn').addEventListener('click', closePartForm);
+document.getElementById('partSaveBtn').addEventListener('click', savePart);
+document.getElementById('partSearch').addEventListener('input', renderParts);
+document.getElementById('partCategoryFilter').addEventListener('change', renderParts);
+
+/* ===================== 全マスタ統一CSV（カメラ・レンズ・部品を1ファイルに） ===================== */
+var UNIFIED_HEADERS = ['id','masterType','maker','model',
+  'cameraType','sensorSize','sensorWidthMm','sensorHeightMm','pixelsH','pixelsV','pixelPitchUm','mount','shutterType','interface','maxFps',
+  'focalLengthMm','fNoMin','fNoMax','maxSensorFormat','lensType','minWdMm','distortionPct','telecentricWdMm','telecentricRangeMm',
+  'category','unitPrice','note','url'];
+
+document.getElementById('templateCsvBtn').addEventListener('click', function(){
+  /* Excelで開いて記入 → 「全マスタCSV読込」で取り込めるテンプレート。記入例3行付き（不要なら行ごと削除） */
+  var examples = [
+    {masterType:'camera', maker:'（例）Vieworks', model:'VC-1234MX', cameraType:'エリア', sensorSize:'1/1.8"', sensorWidthMm:7.18, sensorHeightMm:5.32, pixelsH:2448, pixelsV:2048, pixelPitchUm:2.9, mount:'C', shutterType:'グローバル', interface:'GigE', maxFps:75, unitPrice:180000, note:'記入例です。この行は削除してください', url:''},
+    {masterType:'lens', maker:'（例）KOWA', model:'LM16JC10M', focalLengthMm:16, fNoMin:1.8, fNoMax:16, maxSensorFormat:'1/1.8', mount:'C', lensType:'エントセントリック', minWdMm:100, distortionPct:-0.4, unitPrice:45000, note:'記入例です。この行は削除してください', url:''},
+    {masterType:'part', maker:'（例）CCS', model:'HPR2-100SW', category:'照明', unitPrice:22000, note:'記入例です。この行は削除してください', url:''}
+  ];
+  var csv = toCSV(examples, UNIFIED_HEADERS);
+  downloadBlob(new Blob(['\uFEFF'+csv], {type:'text/csv'}), 'master_template.csv');
+  showToast('テンプレートCSVをダウンロードしました。Excel等で記入して「全マスタCSV読込」で取り込めます。');
+});
+
+document.getElementById('allExportBtn').addEventListener('click', async function(){
+  var cams = await dbGetAll('cameras');
+  var lenses = await dbGetAll('lenses');
+  var parts = await dbGetAll('otherParts');
+
+  var rows = [];
+  cams.forEach(function(c){ rows.push(Object.assign({masterType:'camera'}, c)); });
+  lenses.forEach(function(l){ rows.push(Object.assign({masterType:'lens'}, l)); });
+  parts.forEach(function(p){ rows.push(Object.assign({masterType:'part'}, p)); });
+
+  var csv = toCSV(rows, UNIFIED_HEADERS);
+  downloadBlob(new Blob(['\uFEFF'+csv], {type:'text/csv'}), 'master_all.csv');
+});
+
+document.getElementById('allImportTrigger').addEventListener('click', function(){
+  document.getElementById('allImportFile').click();
+});
+/* ---- インポート安全化：数値検証・全件検証・バックアップ復元 ---- */
+function numOrErr(val, colName, rowNo, errors){
+  /* 空欄はOK（0扱い）。値がある場合のみ数値として解釈できるか検証する */
+  if (val === undefined || val === null || String(val).trim() === '') return 0;
+  var n = parseFloat(String(val).replace(/,/g, ''));
+  if (isNaN(n)){
+    errors.push(rowNo + '行目：「' + colName + '」が数値ではありません（値：' + String(val).slice(0,20) + '）');
+    return 0;
+  }
+  return n;
+}
+function checkHeaders(rows, required, errors){
+  if (!rows.length){ errors.push('データ行がありません（ヘッダーのみ、または空ファイル）。'); return; }
+  var keys = Object.keys(rows[0]);
+  required.forEach(function(h){
+    if (keys.indexOf(h) === -1) errors.push('必須列「' + h + '」が見つかりません。列名の綴り・エクスポート元をご確認ください。');
+  });
+}
+async function backupStores(storeNames){
+  var backup = {};
+  for (var i=0;i<storeNames.length;i++){
+    backup[storeNames[i]] = await dbGetAll(storeNames[i]);
+  }
+  return backup;
+}
+async function restoreStores(backup){
+  for (var store in backup){
+    var current = await dbGetAll(store);
+    for (var i=0;i<current.length;i++) await dbDelete(store, current[i].id);
+    for (var j=0;j<backup[store].length;j++) await dbPut(store, backup[store][j]);
+  }
+}
+function importErrorText(errors){
+  var head = errors.slice(0, 5).join('\n');
+  var more = errors.length > 5 ? '\n…ほか' + (errors.length - 5) + '件' : '';
+  return '読み込みを中止しました（データは変更されていません）。\n' + head + more;
+}
+
+document.getElementById('allImportFile').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = async function(ev){
+    var status = document.getElementById('allImportStatus');
+    var backup = null;
+    try{
+      var rows = parseCSV(ev.target.result);
+
+      /* --- フェーズ1：全行検証（1件も書き込まない） --- */
+      var errors = [];
+      checkHeaders(rows, ['masterType','maker','model'], errors);
+      var validated = [];
+      if (!errors.length){
+        rows.forEach(function(r, idx){
+          var rowNo = idx + 2; /* ヘッダー行が1行目 */
+          if (!r.masterType){ errors.push(rowNo + '行目：masterTypeが空です。'); return; }
+          if (['camera','lens','part'].indexOf(r.masterType) === -1){
+            errors.push(rowNo + '行目：masterType「' + r.masterType + '」が不正です（camera / lens / part のいずれか）。');
+            return;
+          }
+          if (!r.maker || !r.model){ errors.push(rowNo + '行目：メーカー名または型式が空です。'); return; }
+          var v = Object.assign({}, r);
+          v.id = v.id || uid();
+          if (v.masterType === 'camera'){
+            v.sensorWidthMm = numOrErr(r.sensorWidthMm, 'sensorWidthMm', rowNo, errors);
+            v.sensorHeightMm = numOrErr(r.sensorHeightMm, 'sensorHeightMm', rowNo, errors);
+            v.pixelsH = Math.round(numOrErr(r.pixelsH, 'pixelsH', rowNo, errors));
+            v.pixelsV = Math.round(numOrErr(r.pixelsV, 'pixelsV', rowNo, errors));
+            v.pixelPitchUm = numOrErr(r.pixelPitchUm, 'pixelPitchUm', rowNo, errors);
+            v.maxFps = numOrErr(r.maxFps, 'maxFps', rowNo, errors);
+            v.unitPrice = numOrErr(r.unitPrice, 'unitPrice', rowNo, errors);
+          } else if (v.masterType === 'lens'){
+            v.focalLengthMm = numOrErr(r.focalLengthMm, 'focalLengthMm', rowNo, errors);
+            v.fNoMin = numOrErr(r.fNoMin, 'fNoMin', rowNo, errors);
+            v.fNoMax = numOrErr(r.fNoMax, 'fNoMax', rowNo, errors);
+            v.lensType = r.lensType === 'テレセントリック' ? 'テレセントリック' : 'エントセントリック';
+            v.maxSensorFormat = ['1/3','1/2','1/1.8','2/3','1','over1'].indexOf(r.maxSensorFormat) > -1 ? r.maxSensorFormat : (r.imageCircleSensorSize ? guessFormatFromText(r.imageCircleSensorSize) : '');
+            v.minWdMm = numOrErr(r.minWdMm, 'minWdMm', rowNo, errors);
+            v.distortionPct = numOrErr(r.distortionPct, 'distortionPct', rowNo, errors);
+            v.telecentricWdMm = numOrErr(r.telecentricWdMm, 'telecentricWdMm', rowNo, errors);
+            v.telecentricRangeMm = numOrErr(r.telecentricRangeMm, 'telecentricRangeMm', rowNo, errors);
+            v.unitPrice = numOrErr(r.unitPrice, 'unitPrice', rowNo, errors);
+          } else {
+            v.category = r.category || 'その他';
+            v.unitPrice = numOrErr(r.unitPrice, 'unitPrice', rowNo, errors);
+          }
+          validated.push(v);
+        });
+      }
+      if (errors.length){
+        status.textContent = importErrorText(errors);
+        status.className = 'autosave-note';
+        status.style.whiteSpace = 'pre-wrap';
+        e.target.value = '';
+        return;
+      }
+
+      /* --- フェーズ2：既存データをバックアップしてから書き込み --- */
+      backup = await backupStores(['cameras','lenses','otherParts']);
+      var counts = {camera:0, lens:0, part:0};
+      for (var i=0;i<validated.length;i++){
+        var v = validated[i];
+        var type = v.masterType;
+        delete v.masterType;
+        if (type === 'camera'){ await dbPut('cameras', v); counts.camera++; }
+        else if (type === 'lens'){ await dbPut('lenses', v); counts.lens++; }
+        else { await dbPut('otherParts', v); counts.part++; }
+      }
+      status.textContent = '読み込み完了：カメラ' + counts.camera + '件／レンズ' + counts.lens + '件／部品' + counts.part + '件';
+      status.className = 'autosave-note saved';
+      status.style.whiteSpace = '';
+      await renderCameras();
+      await renderLenses();
+      await renderParts();
+    } catch(ex){
+      /* 書き込み途中の例外：バックアップから復元して中途半端な状態を防ぐ */
+      if (backup){
+        try{ await restoreStores(backup); } catch(rex){ /* 復元失敗時はメッセージのみ */ }
+        status.textContent = '読み込み中にエラーが発生したため、インポート前の状態に復元しました：' + ex.message;
+      } else {
+        status.textContent = '読み込みエラー（データは変更されていません）: ' + ex.message;
+      }
+      status.className = 'autosave-note';
+      await renderCameras();
+      await renderLenses();
+      await renderParts();
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+
+/* ===================== 見積もり（部品追加・概算合計） ===================== */
+var OTHER_CATEGORIES = ['コントローラー','照明','ケーブル','電源','付属品','その他'];
+
+document.getElementById('est_category').addEventListener('change', function(){
+  var isOther = OTHER_CATEGORIES.indexOf(this.value) > -1;
+  document.getElementById('est_quickAddOther').classList.toggle('hidden', !isOther);
+  refreshEstItemOptions();
+});
+
+async function refreshEstItemOptions(){
+  var category = document.getElementById('est_category').value;
+  var select = document.getElementById('est_itemSelect');
+  select.innerHTML = '<option value="">読み込み中…</option>';
+  var options = [];
+
+  if (category === 'エリアカメラ' || category === 'ラインカメラ'){
+    var type = category === 'エリアカメラ' ? 'エリア' : 'ライン';
+    var all = await dbGetAll('cameras');
+    options = all.filter(function(c){ return c.cameraType === type; }).map(function(c){
+      return {value:c.id, label:c.maker+' '+c.model, price:c.unitPrice||0};
+    });
+  } else if (category === 'レンズ'){
+    var allL = await dbGetAll('lenses');
+    options = allL.map(function(l){ return {value:l.id, label:l.maker+' '+l.model, price:l.unitPrice||0}; });
+  } else {
+    var allO = await dbGetAll('otherParts');
+    options = allO.filter(function(p){ return p.category === category; }).map(function(p){
+      return {value:p.id, label:p.maker+' '+p.model, price:p.unitPrice||0};
+    });
+  }
+
+  select.innerHTML = options.length
+    ? options.map(function(o){ return '<option value="'+o.value+'" data-price="'+o.price+'" data-label="'+escXml(o.label)+'">'+escXml(o.label)+'</option>'; }).join('')
+    : '<option value="">登録なし（下の欄から新規登録できます）</option>';
+}
+
+document.getElementById('eq_addBtn').addEventListener('click', async function(){
+  var category = document.getElementById('est_category').value;
+  var maker = document.getElementById('eq_maker').value.trim();
+  var model = document.getElementById('eq_model').value.trim();
+  var price = parseFloat(document.getElementById('eq_price').value) || 0;
+  if (!maker || !model){
+    alert('メーカー名と型式を入力してください。');
+    return;
+  }
+  var part = {id: uid(), category: category, maker: maker, model: model, unitPrice: price, note:'', url:''};
+  await dbPut('otherParts', part);
+  document.getElementById('eq_maker').value = '';
+  document.getElementById('eq_model').value = '';
+  document.getElementById('eq_price').value = '';
+  await refreshEstItemOptions();
+  var select = document.getElementById('est_itemSelect');
+  select.value = part.id;
+});
+
+document.getElementById('est_addBtn').addEventListener('click', async function(){
+  var category = document.getElementById('est_category').value;
+  var select = document.getElementById('est_itemSelect');
+  var opt = select.selectedOptions[0];
+  if (!opt || !opt.value){
+    alert('追加する型式を選択してください。');
+    return;
+  }
+  var qty = parseFloat(document.getElementById('est_qty').value) || 1;
+  var item = {
+    id: uid(),
+    category: category,
+    label: opt.dataset.label,
+    qty: qty,
+    unitPrice: parseFloat(opt.dataset.price) || 0
+  };
+  await dbPut('estimateItems', item);
+  renderEstimate();
+});
+
+async function renderEstimate(){
+  var all = await dbGetAll('estimateItems');
+  all.sort(function(a,b){ return (a.category||'').localeCompare(b.category||''); });
+  var total = 0;
+  var tbody = document.getElementById('estimateTableBody');
+  tbody.innerHTML = all.map(function(it){
+    var subtotal = (it.qty||0) * (it.unitPrice||0);
+    total += subtotal;
+    return '<tr class="row-hover">'
+      + '<td>'+escXml(it.category)+'</td>'
+      + '<td class="model-cell">'+escXml(it.label)+'</td>'
+      + '<td><input type="number" class="est-inline-input" min="0" value="'+it.qty+'" data-field="qty" data-id="'+it.id+'"></td>'
+      + '<td><input type="number" class="est-inline-input" min="0" value="'+it.unitPrice+'" data-field="unitPrice" data-id="'+it.id+'"></td>'
+      + '<td>¥'+subtotal.toLocaleString('ja-JP')+'</td>'
+      + '<td><div class="icon-btn" data-del-est="'+it.id+'" title="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"/></svg></div></td>'
+      + '</tr>';
+  }).join('');
+
+  document.getElementById('estimateEmpty').classList.toggle('hidden', all.length > 0);
+  document.getElementById('estimateTotalOut').textContent = '¥' + total.toLocaleString('ja-JP');
+
+  tbody.querySelectorAll('.est-inline-input').forEach(function(inp){
+    inp.addEventListener('change', async function(){
+      var id = inp.dataset.id, field = inp.dataset.field;
+      var item = all.find(function(x){ return x.id === id; });
+      if (!item) return;
+      item[field] = parseFloat(inp.value) || 0;
+      await dbPut('estimateItems', item);
+      renderEstimate();
+    });
+  });
+  tbody.querySelectorAll('[data-del-est]').forEach(function(el){
+    el.addEventListener('click', async function(){
+      await dbDelete('estimateItems', el.dataset.delEst);
+      renderEstimate();
+    });
+  });
+}
+
+document.getElementById('estimateCopyDslBtn').addEventListener('click', async function(){
+  var items = await dbGetAll('estimateItems');
+  if (!items.length){
+    alert('見積もりが空です。先に部品を追加してください。');
+    return;
+  }
+  var lines = [];
+  items.forEach(function(it){
+    var typeName = (it.category || 'その他').replace(/[()\/]/g, '');
+    var attrs = ['型式:' + it.label];
+    if (it.unitPrice) attrs.push('参考単価:' + it.unitPrice + '円');
+    var qty = Math.max(1, Math.round(it.qty || 1));
+    for (var i = 0; i < qty; i++){
+      lines.push(typeName + '(' + attrs.join(',') + ')');
+    }
+  });
+  var dsl = lines.join('\n');
+  var ok = await copyTextWithFallback(dsl);
+  if (ok) showToast('見積もり全体をDSLスニペットとしてコピーしました。接続（→）は含まれていないので、構成図ツール側で配線してください。');
+});
+
+/* ===================== 案件履歴（スナップショット保存・呼び出し・比較） ===================== */
+var PROJECT_HEADERS = ['id','name','customer','target','env','note','status','designNote','fovX','fovY','wd','camType','minDefect','resFactor','mountSel',
+  'camLabel','lensLabel','mountOk','effectiveFNo','focalNearest','angle','resPerPixelUm',
+  'ctExposure','ctProcessing','ctOutput','ctTakt','ctTotal','estimateItemsJson','estimateTotal','createdAt','updatedAt'];
+var PROJECT_STATUSES = ['検討中','見積提出済み','受注','失注','納品完了'];
+
+async function collectProjectSnapshot(){
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var camType = document.querySelector('#camTypeSeg button.active').dataset.val;
+  var minDefect = parseFloat(document.getElementById('minDefect').value) || 0;
+  var resFactor = getResFactor();
+  var mountSel = document.getElementById('mountSel').value;
+  var angle = (fovX && wd) ? (2 * Math.atan(fovX / (2*wd)) * 180 / Math.PI) : 0;
+  var best = lastCandidates && lastCandidates[0];
+
+  var ctExp = parseFloat(document.getElementById('ct_exposure').value) || 0;
+  var ctProc = parseFloat(document.getElementById('ct_processing').value) || 0;
+  var ctOut = parseFloat(document.getElementById('ct_output').value) || 0;
+  var ctTakt = parseFloat(document.getElementById('ct_takt').value) || 0;
+
+  var items = await dbGetAll('estimateItems');
+  var estimateTotal = 0;
+  items.forEach(function(it){ estimateTotal += (it.qty||0) * (it.unitPrice||0); });
+
+  return {
+    id: uid(),
+    name: document.getElementById('topProjectName').value.trim() || '（案件名未入力）',
+    customer: document.getElementById('pn_customer').value.trim(),
+    target: document.getElementById('pn_target').value.trim(),
+    env: document.getElementById('pn_env').value.trim(),
+    note: document.getElementById('pn_note').value.trim(),
+    fovX: fovX, fovY: fovY, wd: wd, camType: camType, minDefect: minDefect, resFactor: resFactor, mountSel: mountSel,
+    camLabel: best ? (best.cam.maker + ' ' + best.cam.model) : '',
+    lensLabel: best ? (best.lens.maker + ' ' + best.lens.model) : '',
+    mountOk: best ? !!best.mountOk : null,
+    effectiveFNo: best ? (best.effectiveFNo || 0) : 0,
+    focalNearest: (fovX && wd && best && best.cam.sensorWidthMm) ? nearestFocal(best.cam.sensorWidthMm * wd / fovX) : 0,
+    angle: angle,
+    resPerPixelUm: lastResolutionMm ? lastResolutionMm * 1000 : 0,
+    ctExposure: ctExp, ctProcessing: ctProc, ctOutput: ctOut, ctTakt: ctTakt, ctTotal: ctExp + ctProc + ctOut,
+    estimateItemsJson: JSON.stringify(items.map(function(it){ return {category: it.category, label: it.label, qty: it.qty, unitPrice: it.unitPrice}; })),
+    estimateTotal: estimateTotal,
+    status: document.getElementById('snapStatus').value || '検討中',
+    designNote: document.getElementById('snapDesignNote').value.trim(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+document.getElementById('saveProjectBtn').addEventListener('click', async function(){
+  if (!document.getElementById('topProjectName').value.trim()){
+    document.getElementById('topProjectName').focus();
+    showToast('案件名を入力しておくと、後で一覧から見分けやすくなります。');
+  }
+  var snap = await collectProjectSnapshot();
+  await dbPut('projects', snap);
+  var el = document.getElementById('saveProjectStatus');
+  el.textContent = '保存しました：' + snap.name + '（' + new Date().toLocaleString('ja-JP') + '）';
+  el.className = 'autosave-note saved';
+  await renderProjectHistory();
+});
+
+document.getElementById('exportProjectsBtn').addEventListener('click', async function(){
+  var all = await dbGetAll('projects');
+  if (!all.length){ alert('保存された案件がありません。'); return; }
+  var csv = toCSV(all, PROJECT_HEADERS);
+  downloadBlob(new Blob(['\uFEFF'+csv], {type:'text/csv'}), 'project_history.csv');
+});
+
+document.getElementById('importProjectsTrigger').addEventListener('click', function(){
+  document.getElementById('importProjectsFile').click();
+});
+document.getElementById('importProjectsFile').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = async function(ev){
+    var status = document.getElementById('saveProjectStatus');
+    var backup = null;
+    try{
+      var rows = parseCSV(ev.target.result);
+
+      /* --- フェーズ1：全行検証（1件も書き込まない） --- */
+      var errors = [];
+      checkHeaders(rows, ['name'], errors);
+      var validated = [];
+      if (!errors.length){
+        var numCols = ['fovX','fovY','wd','minDefect','effectiveFNo','focalNearest','angle','resPerPixelUm','ctExposure','ctProcessing','ctOutput','ctTakt','ctTotal','estimateTotal'];
+        rows.forEach(function(r, idx){
+          var rowNo = idx + 2;
+          if (!r.name){ errors.push(rowNo + '行目：案件名（name）が空です。'); return; }
+          var v = Object.assign({}, r);
+          v.id = v.id || uid();
+          numCols.forEach(function(c){ v[c] = numOrErr(r[c], c, rowNo, errors); });
+          v.resFactor = numOrErr(r.resFactor, 'resFactor', rowNo, errors) || 3;
+          v.mountOk = r.mountOk === 'true' ? true : (r.mountOk === 'false' ? false : null);
+          v.status = PROJECT_STATUSES.indexOf(r.status) > -1 ? r.status : '検討中';
+          v.createdAt = r.createdAt || new Date().toISOString();
+          v.updatedAt = r.updatedAt || v.createdAt;
+          if (r.estimateItemsJson && String(r.estimateItemsJson).trim()){
+            try{ JSON.parse(r.estimateItemsJson); }
+            catch(jx){ errors.push(rowNo + '行目：見積もり明細（estimateItemsJson）が壊れています。'); }
+          }
+          validated.push(v);
+        });
+      }
+      if (errors.length){
+        status.textContent = importErrorText(errors);
+        status.className = 'autosave-note';
+        status.style.whiteSpace = 'pre-wrap';
+        e.target.value = '';
+        return;
+      }
+
+      /* --- フェーズ2：バックアップしてから書き込み --- */
+      backup = await backupStores(['projects']);
+      for (var i=0;i<validated.length;i++){
+        await dbPut('projects', validated[i]);
+      }
+      status.textContent = '読み込み完了：' + validated.length + '件';
+      status.className = 'autosave-note saved';
+      status.style.whiteSpace = '';
+      await renderProjectHistory();
+    } catch(ex){
+      if (backup){
+        try{ await restoreStores(backup); } catch(rex){ /* 復元失敗時はメッセージのみ */ }
+        status.textContent = '読み込み中にエラーが発生したため、インポート前の状態に復元しました：' + ex.message;
+      } else {
+        status.textContent = '読み込みエラー（データは変更されていません）: ' + ex.message;
+      }
+      status.className = 'autosave-note';
+      await renderProjectHistory();
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+function updateCompareCount(){
+  var checked = document.querySelectorAll('.project-compare-check:checked');
+  document.getElementById('compareCount').textContent = checked.length;
+}
+
+async function renderProjectHistory(){
+  var all = await dbGetAll('projects');
+  all.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  var q = document.getElementById('projectSearch').value.trim().toLowerCase();
+  var rows = all.filter(function(p){
+    return !q || (p.name+' '+(p.customer||'')).toLowerCase().indexOf(q) > -1;
+  });
+
+  document.getElementById('projectCount').textContent = all.length + '件';
+  document.getElementById('projectEmpty').classList.toggle('hidden', rows.length > 0);
+  document.getElementById('projectCompareCard').classList.add('hidden');
+
+  var tbody = document.getElementById('projectTableBody');
+  tbody.innerHTML = rows.map(function(p){
+    var configText = p.camLabel ? (escXml(p.camLabel) + '<span class="model-sub">' + escXml(p.lensLabel||'-') + '</span>') : '<span class="model-sub">未選択</span>';
+    var dateText = p.createdAt ? new Date(p.createdAt).toLocaleString('ja-JP') : '-';
+    var noteSub = p.designNote ? '<span class="model-sub" title="'+escXml(p.designNote)+'">📝 '+escXml(p.designNote.length > 24 ? p.designNote.slice(0,24)+'…' : p.designNote)+'</span>' : '';
+    var statusSel = '<select class="est-inline-input status-select" data-status-id="'+p.id+'" style="max-width:130px; font-family:var(--sans); font-size:11.5px;">'
+      + PROJECT_STATUSES.map(function(st){ return '<option value="'+st+'"'+(st === (p.status||'検討中') ? ' selected' : '')+'>'+st+'</option>'; }).join('')
+      + '</select>';
+    return '<tr class="row-hover">'
+      + '<td><input type="checkbox" class="project-compare-check" data-id="'+p.id+'"></td>'
+      + '<td class="model-cell">'+escXml(p.name)+'<span class="model-sub">'+escXml(p.customer||'-')+'</span>'+noteSub+'</td>'
+      + '<td>'+statusSel+'</td>'
+      + '<td class="model-cell">'+configText+'</td>'
+      + '<td>¥'+Number(p.estimateTotal||0).toLocaleString('ja-JP')+'</td>'
+      + '<td>'+dateText+'</td>'
+      + '<td><div class="row-actions">'
+        + '<div class="icon-btn" data-load="'+p.id+'" title="呼び出し"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>'
+        + '<div class="icon-btn" data-del="'+p.id+'" title="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"/></svg></div>'
+      + '</div></td>'
+      + '</tr>';
+  }).join('');
+
+  tbody.querySelectorAll('[data-load]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var p = all.find(function(x){ return x.id === el.dataset.load; });
+      if (p) armedAction(el, 'もう一度タップすると「'+p.name+'」を呼び出します（現在の入力内容・見積もりは上書き）。', function(){ loadProjectSnapshot(p); });
+    });
+  });
+  tbody.querySelectorAll('[data-del]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var p = all.find(function(x){ return x.id === el.dataset.del; });
+      if (!p) return;
+      armedDelete(el, async function(){
+        await dbDelete('projects', p.id);
+        showToast('削除しました：' + p.name);
+        renderProjectHistory();
+      });
+    });
+  });
+  tbody.querySelectorAll('.project-compare-check').forEach(function(el){
+    el.addEventListener('change', updateCompareCount);
+  });
+  tbody.querySelectorAll('.status-select').forEach(function(el){
+    el.addEventListener('change', async function(){
+      var p = all.find(function(x){ return x.id === el.dataset.statusId; });
+      if (!p) return;
+      p.status = el.value;
+      p.updatedAt = new Date().toISOString();
+      await dbPut('projects', p);
+      showToast('ステータスを「' + el.value + '」に更新しました：' + p.name);
+    });
+  });
+  updateCompareCount();
+}
+
+async function loadProjectSnapshot(p){
+
+  document.getElementById('topProjectName').value = p.name === '（案件名未入力）' ? '' : (p.name || '');
+  document.getElementById('pn_customer').value = p.customer || '';
+  document.getElementById('pn_target').value = p.target || '';
+  document.getElementById('pn_env').value = p.env || '';
+  document.getElementById('pn_note').value = p.note || '';
+  document.getElementById('fovX').value = p.fovX || '';
+  document.getElementById('fovY').value = p.fovY || '';
+  document.getElementById('wd').value = p.wd || '';
+  document.getElementById('minDefect').value = p.minDefect || '';
+  var rf = parseFloat(p.resFactor) || 3;
+  if ([3,5,10].indexOf(rf) > -1){
+    document.getElementById('resFactor').value = String(rf);
+    document.getElementById('resFactorCustom').classList.add('hidden');
+  } else {
+    document.getElementById('resFactor').value = 'custom';
+    document.getElementById('resFactorCustom').value = rf;
+    document.getElementById('resFactorCustom').classList.remove('hidden');
+  }
+  document.getElementById('mountSel').value = p.mountSel || 'C';
+  document.querySelectorAll('#camTypeSeg button').forEach(function(b){ b.classList.toggle('active', b.dataset.val === p.camType); });
+
+  document.getElementById('ct_exposure').value = p.ctExposure || 0;
+  document.getElementById('ct_processing').value = p.ctProcessing || 0;
+  document.getElementById('ct_output').value = p.ctOutput || 0;
+  document.getElementById('ct_takt').value = p.ctTakt || 0;
+  document.getElementById('snapStatus').value = PROJECT_STATUSES.indexOf(p.status) > -1 ? p.status : '検討中';
+  document.getElementById('snapDesignNote').value = p.designNote || '';
+
+  await saveNotes();
+
+  /* 見積もり明細を復元（既存分は入れ替え） */
+  var existing = await dbGetAll('estimateItems');
+  for (var i=0;i<existing.length;i++){ await dbDelete('estimateItems', existing[i].id); }
+  var items = [];
+  try{ items = JSON.parse(p.estimateItemsJson || '[]'); } catch(ex){ items = []; }
+  for (var j=0;j<items.length;j++){
+    await dbPut('estimateItems', Object.assign({id:uid()}, items[j]));
+  }
+  await renderEstimate();
+
+  /* カメラ・レンズの選択も、現在のマスタに同型式があれば復元 */
+  await refreshPickOptions();
+  var camMatch = pickCamsCache.find(function(c){ return (c.maker+' '+c.model) === p.camLabel; });
+  var lensMatch = pickLensesCache.find(function(l){ return (l.maker+' '+l.model) === p.lensLabel; });
+  if (camMatch) document.getElementById('pickCameraSelect').value = camMatch.id;
+  if (lensMatch) document.getElementById('pickLensSelect').value = lensMatch.id;
+
+  runCalc();
+  computeCycleTime();
+
+  var calcNav = document.querySelector('.nav-item[data-tab="calc"]');
+  if (calcNav) calcNav.click();
+  showToast('「'+p.name+'」を呼び出しました。');
+}
+
+document.getElementById('compareProjectsBtn').addEventListener('click', async function(){
+  var checkedIds = Array.from(document.querySelectorAll('.project-compare-check:checked')).map(function(el){ return el.dataset.id; });
+  if (checkedIds.length < 2){ alert('比較するには2件以上選択してください。'); return; }
+  if (checkedIds.length > 4){ alert('比較は4件までにしてください。'); return; }
+  var all = await dbGetAll('projects');
+  var picked = checkedIds.map(function(id){ return all.find(function(p){ return p.id === id; }); }).filter(Boolean);
+  renderProjectCompare(picked);
+});
+document.getElementById('closeCompareBtn').addEventListener('click', function(){
+  document.getElementById('projectCompareCard').classList.add('hidden');
+});
+document.getElementById('projectSearch').addEventListener('input', renderProjectHistory);
+
+function renderProjectCompare(list){
+  var rowsDef = [
+    ['ステータス', function(p){ return p.status || '検討中'; }],
+    ['客先名', function(p){ return p.customer || '-'; }],
+    ['カメラ', function(p){ return p.camLabel || '-'; }],
+    ['レンズ', function(p){ return p.lensLabel || '-'; }],
+    ['マウント', function(p){ return p.mountOk === null ? '-' : (p.mountOk ? '適合' : '要アダプター'); }],
+    ['視野（FOV）', function(p){ return (p.fovX||'-') + ' × ' + (p.fovY||'-') + ' mm'; }],
+    ['ワークディスタンス', function(p){ return (p.wd||'-') + ' mm'; }],
+    ['画角', function(p){ return p.angle ? p.angle.toFixed(1)+'°' : '-'; }],
+    ['推奨焦点距離', function(p){ return p.focalNearest ? p.focalNearest+'mm' : '-'; }],
+    ['分解能', function(p){ return p.resPerPixelUm ? p.resPerPixelUm.toFixed(1)+'µm/px' : '-'; }],
+    ['実効F値', function(p){ return p.effectiveFNo ? 'f/'+p.effectiveFNo.toFixed(1) : '-'; }],
+    ['サイクルタイム合計', function(p){ return p.ctTotal ? p.ctTotal.toFixed(1)+'ms' : '-'; }],
+    ['概算合計', function(p){ return '¥'+Number(p.estimateTotal||0).toLocaleString('ja-JP'); }],
+    ['設計メモ', function(p){ return p.designNote || '-'; }],
+    ['保存日時', function(p){ return p.createdAt ? new Date(p.createdAt).toLocaleString('ja-JP') : '-'; }]
+  ];
+  var html = '<thead><tr><th></th>' + list.map(function(p){ return '<th>'+escXml(p.name)+'</th>'; }).join('') + '</tr></thead><tbody>';
+  rowsDef.forEach(function(r){
+    html += '<tr><th style="text-align:left; font-family:var(--sans); font-size:11.5px; color:var(--text-dim); font-weight:600;">'+r[0]+'</th>'
+      + list.map(function(p){ return '<td>'+escXml(r[1](p))+'</td>'; }).join('')
+      + '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('projectCompareTable').innerHTML = html;
+  document.getElementById('projectCompareCard').classList.remove('hidden');
+  document.getElementById('projectCompareCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ===================== AIに相談（相談プロンプト生成） ===================== */
+async function buildAIConsultPrompt(){
+  /* --- 現在の状態を収集 --- */
+  var customer = document.getElementById('pn_customer').value.trim();
+  var target = document.getElementById('pn_target').value.trim();
+  var env = document.getElementById('pn_env').value.trim();
+  var note = document.getElementById('pn_note').value.trim();
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var minDefect = parseFloat(document.getElementById('minDefect').value) || 0;
+  var resFactor = getResFactor();
+  var typeVal = document.querySelector('#camTypeSeg button.active').dataset.val;
+  var camTypeLabel = typeVal === 'area' ? 'エリアカメラ' : (typeVal === 'line' ? 'ラインカメラ' : '3Dカメラ');
+  var focalText = document.getElementById('outFocal').textContent;
+  var angleText = document.getElementById('outAngle').textContent;
+  var resText = document.getElementById('outRes').textContent;
+  var pxText = document.getElementById('outPx').textContent;
+  var best = lastCandidates && lastCandidates[0];
+
+  var lines = [];
+  lines.push('FA（工場自動化）向け画像処理・外観検査システムの光学系選定について相談させてください。');
+  lines.push('');
+  lines.push('■ 案件条件');
+  if (customer) lines.push('・客先：' + customer);
+  if (target) lines.push('・検査対象・工程：' + target);
+  if (env) lines.push('・設置環境：' + env);
+  lines.push('・カメラ種別：' + camTypeLabel);
+  lines.push('・視野（FOV）：' + (fovX && fovY ? fovX + ' × ' + fovY + ' mm' : '未定'));
+  lines.push('・ワークディスタンス（WD）：' + (wd ? wd + ' mm' : '未定'));
+  lines.push('・最小検出サイズ：' + (minDefect ? minDefect + ' mm' : '未定') + '（分解能係数 ' + resFactor + 'px/特徴）');
+  if (note) lines.push('・その他仕様：' + note);
+  lines.push('');
+  lines.push('■ 計算結果');
+  lines.push('・必要焦点距離：' + focalText + '　・画角：' + angleText);
+  lines.push('・分解能：' + resText + '　・検出割当画素：' + pxText);
+
+  if (best){
+    lines.push('');
+    lines.push('■ 現在の選定');
+    lines.push('・カメラ：' + best.cam.maker + ' ' + best.cam.model + '（' + (best.cam.sensorSize||'-') + '、' + (best.cam.pixelsH||'?') + '×' + (best.cam.pixelsV||'?') + '）');
+    lines.push('・レンズ：' + best.lens.maker + ' ' + best.lens.model + '（f' + (best.lens.focalLengthMm||'?') + 'mm' + (best.lens.lensType==='テレセントリック'?'・テレセントリック':'') + '）');
+    var warns = [];
+    if (!best.mountOk) warns.push('マウント不一致（要アダプター）');
+    if (best.resWarn) warns.push('分解能不足の可能性');
+    if (best.isTele && !best.teleOk) warns.push('テレセントリック域外');
+    if (warns.length) lines.push('・ツールの警告：' + warns.join('、'));
+  }
+
+  var items = await dbGetAll('estimateItems');
+  if (items.length){
+    lines.push('');
+    lines.push('■ 現在の構成（見積もり明細）');
+    items.forEach(function(it){ lines.push('・' + it.category + '：' + it.label + ' × ' + it.qty); });
+  }
+
+  lines.push('');
+  lines.push('■ 相談したいこと');
+  lines.push('この選定内容の妥当性をチェックしてください。具体的には：');
+  lines.push('1. 光学条件（焦点距離・分解能・WD）に無理や見落としがないか');
+  lines.push('2. この検査対象・環境で起こりがちなリスク（ブレ・照明・温度など）');
+  lines.push('3. より適した代替構成があれば提案してください');
+  return lines.join('\n');
+}
+
+document.getElementById('aiConsultGenBtn').addEventListener('click', async function(){
+  document.getElementById('aiConsultPreview').value = await buildAIConsultPrompt();
+  showToast('相談文を生成しました。内容を確認して「生成してコピー」でコピーできます。');
+});
+document.getElementById('aiConsultCopyBtn').addEventListener('click', async function(){
+  var text = await buildAIConsultPrompt();
+  document.getElementById('aiConsultPreview').value = text;
+  var ok = await copyTextWithFallback(text);
+  if (ok) showToast('相談文をコピーしました。ClaudeやChatGPTに貼り付けてください。');
+});
+
+/* ---- APIキー（この端末のlocalStorageにのみ保存。CSV・IndexedDBには含まれない） ---- */
+var API_KEY_STORAGE_KEY = 'optics_selector_anthropic_api_key';
+
+function getSavedApiKey(){
+  try{ return localStorage.getItem(API_KEY_STORAGE_KEY) || ''; } catch(ex){ return ''; }
+}
+function refreshApiKeyStatus(){
+  var key = getSavedApiKey();
+  var el = document.getElementById('apiKeyStatus');
+  if (key){
+    el.textContent = '保存済み（' + key.slice(0,8) + '…' + key.slice(-4) + '）。「AIに直接聞く」が使えます。';
+    el.className = 'autosave-note saved';
+  } else {
+    el.textContent = '未設定です。「AIに直接聞く」を使うには、APIキーを保存してください。';
+    el.className = 'autosave-note';
+  }
+}
+document.getElementById('apiKeySaveBtn').addEventListener('click', function(){
+  var v = document.getElementById('apiKeyInput').value.trim();
+  if (!v){ showToast('APIキーを入力してください。'); return; }
+  try{
+    localStorage.setItem(API_KEY_STORAGE_KEY, v);
+    document.getElementById('apiKeyInput').value = '';
+    refreshApiKeyStatus();
+    showToast('APIキーをこの端末に保存しました。');
+  } catch(ex){
+    showToast('保存に失敗しました：' + ex.message);
+  }
+});
+document.getElementById('apiKeyClearBtn').addEventListener('click', function(){
+  try{ localStorage.removeItem(API_KEY_STORAGE_KEY); } catch(ex){}
+  refreshApiKeyStatus();
+  showToast('APIキーを削除しました。');
+});
+refreshApiKeyStatus();
+
+/* ---- AIに直接聞く：Anthropic APIをこの端末から直接呼び出す ---- */
+document.getElementById('aiConsultAskBtn').addEventListener('click', async function(){
+  var apiKey = getSavedApiKey();
+  if (!apiKey){
+    showToast('先に上の「APIキー設定」を開いて、APIキーを保存してください。');
+    document.getElementById('apiKeyPanel').open = true;
+    return;
+  }
+  var prompt = await buildAIConsultPrompt();
+  document.getElementById('aiConsultPreview').value = prompt;
+
+  var btn = this;
+  var wrap = document.getElementById('aiAnswerWrap');
+  var box = document.getElementById('aiAnswerBox');
+  btn.disabled = true;
+  btn.textContent = '相談中…';
+  wrap.classList.remove('hidden');
+  box.textContent = 'AIに問い合わせています…';
+
+  try{
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok){
+      var errBody = await res.text();
+      if (res.status === 401){
+        box.textContent = 'APIキーが無効なようです（401）。console.anthropic.comでキーを確認の上、保存し直してください。';
+      } else if (res.status === 429){
+        box.textContent = 'リクエストが混み合っているか、利用上限に達しています（429）。少し待って再試行してください。';
+      } else {
+        box.textContent = 'エラーが発生しました（' + res.status + '）：' + errBody.slice(0, 300);
+      }
+      return;
+    }
+
+    var data = await res.json();
+    var text = (data.content || []).map(function(b){ return b.type === 'text' ? b.text : ''; }).filter(Boolean).join('\n');
+    box.textContent = text || '（応答が空でした）';
+  } catch(ex){
+    box.textContent = '通信エラーが発生しました：' + ex.message + '\n\n※ブラウザから直接APIを呼べない環境（一部の企業ネットワーク・拡張機能のブロック等）の可能性があります。その場合は「生成してコピー」でClaudeアプリに貼り付けてご利用ください。';
+  } finally{
+    btn.disabled = false;
+    btn.textContent = '✨ AIに直接聞く';
+  }
+});
+
+/* ===================== 構成図（DSL → ブロック図SVG） ===================== */
+/* DSLパース：行を接続チェーンにまとめ、各ノードを {type, attrs:[{k,v}]} に分解 */
+function parseDSL(text){
+  var rawLines = text.split(/\r\n|\n/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length; });
+  /* 「 -> 」で始まる継続行を前の行に連結 */
+  var chainsRaw = [];
+  rawLines.forEach(function(l){
+    if (/^->/.test(l) && chainsRaw.length){
+      chainsRaw[chainsRaw.length-1] += ' ' + l;
+    } else {
+      chainsRaw.push(l);
+    }
+  });
+  return chainsRaw.map(function(chain){
+    return chain.split('->').map(function(seg){
+      seg = seg.trim();
+      var m = seg.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+      if (!m) return {type: seg, attrs: []};
+      var attrs = [];
+      if (m[2]){
+        m[2].split(',').forEach(function(pair){
+          var i = pair.indexOf(':');
+          if (i > -1) attrs.push({k: pair.slice(0,i).trim(), v: pair.slice(i+1).trim()});
+          else if (pair.trim()) attrs.push({k:'', v: pair.trim()});
+        });
+      }
+      return {type: m[1].trim(), attrs: attrs};
+    }).filter(function(n){ return n.type; });
+  }).filter(function(c){ return c.length; });
+}
+
+/* 種別 → ノード色 */
+var DSL_NODE_COLORS = {
+  'エリアカメラ':'#2D6FF7', 'ラインカメラ':'#2D6FF7', '3Dカメラ':'#2D6FF7',
+  'レンズ':'#FF6B5E', 'アダプター':'#9AA8C4',
+  '照明':'#E0A81F', 'コントローラー':'#7C5CD6', '電源':'#1E9E5F',
+  'ケーブル':'#6C7A99', 'PLC':'#7C5CD6'
+};
+function dslNodeColor(type){
+  for (var key in DSL_NODE_COLORS){ if (type.indexOf(key) > -1) return DSL_NODE_COLORS[key]; }
+  return '#6C7A99';
+}
+
+function renderDSLDiagram(chains){
+  var NODE_W = 200, ATTR_LINE_H = 15, HEAD_H = 30, PAD = 10, GAP_X = 56, GAP_Y = 26, MAX_ATTRS = 5;
+  var rows = chains.map(function(chain){
+    var maxAttrs = 0;
+    chain.forEach(function(n){ maxAttrs = Math.max(maxAttrs, Math.min(n.attrs.length, MAX_ATTRS)); });
+    var h = HEAD_H + (maxAttrs ? maxAttrs*ATTR_LINE_H + PAD : PAD);
+    return {chain: chain, h: h};
+  });
+  var totalW = Math.max.apply(null, rows.map(function(r){ return r.chain.length * NODE_W + (r.chain.length-1) * GAP_X; })) + 20;
+  var totalH = rows.reduce(function(a,r){ return a + r.h + GAP_Y; }, 10);
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">';
+  svg += '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6C7A99"/></marker></defs>';
+
+  var y = 10;
+  rows.forEach(function(row){
+    var x = 10;
+    row.chain.forEach(function(n, i){
+      var color = dslNodeColor(n.type);
+      var attrs = n.attrs.slice(0, MAX_ATTRS);
+      /* ノード枠 */
+      svg += '<rect x="'+x+'" y="'+y+'" width="'+NODE_W+'" height="'+row.h+'" rx="10" fill="#FFFFFF" stroke="'+color+'" stroke-width="1.8"/>';
+      /* ヘッダー帯 */
+      svg += '<path d="M'+x+' '+(y+10)+' a10 10 0 0 1 10-10 h'+(NODE_W-20)+' a10 10 0 0 1 10 10 v'+(HEAD_H-10)+' h-'+NODE_W+' z" fill="'+color+'"/>';
+      svg += '<text x="'+(x+NODE_W/2)+'" y="'+(y+20)+'" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF" font-family="Zen Kaku Gothic New, sans-serif">'+escXml(n.type)+'</text>';
+      /* 属性 */
+      attrs.forEach(function(a, j){
+        var label = a.k ? a.k + ': ' + a.v : a.v;
+        if (label.length > 26) label = label.slice(0,25) + '…';
+        svg += '<text x="'+(x+10)+'" y="'+(y+HEAD_H+14+j*ATTR_LINE_H)+'" font-size="10" fill="#4A5670">'+escXml(label)+'</text>';
+      });
+      if (n.attrs.length > MAX_ATTRS){
+        svg += '<text x="'+(x+10)+'" y="'+(y+HEAD_H+14+MAX_ATTRS*ATTR_LINE_H)+'" font-size="9" fill="#9AA8C4">…ほか'+(n.attrs.length-MAX_ATTRS)+'項目</text>';
+      }
+      /* 矢印 */
+      if (i < row.chain.length - 1){
+        var ay = y + row.h/2;
+        svg += '<line x1="'+(x+NODE_W)+'" y1="'+ay+'" x2="'+(x+NODE_W+GAP_X-8)+'" y2="'+ay+'" stroke="#6C7A99" stroke-width="1.8" marker-end="url(#arrow)"/>';
+      }
+      x += NODE_W + GAP_X;
+    });
+    y += row.h + GAP_Y;
+  });
+  svg += '</svg>';
+  return svg;
+}
+
+var lastDiagramSvg = '';
+document.getElementById('dslRenderBtn').addEventListener('click', function(){
+  var text = document.getElementById('dslInput').value;
+  var chains = parseDSL(text);
+  var host = document.getElementById('dslDiagramHost');
+  var empty = document.getElementById('dslDiagramEmpty');
+  if (!chains.length){
+    host.innerHTML = '';
+    lastDiagramSvg = '';
+    empty.textContent = 'DSLを解釈できませんでした。1行に1つの部品またはチェーン（A(...) -> B(...)）を記述してください。';
+    empty.classList.remove('hidden');
+    return;
+  }
+  lastDiagramSvg = renderDSLDiagram(chains);
+  host.innerHTML = lastDiagramSvg;
+  empty.classList.add('hidden');
+});
+
+document.getElementById('dslDownloadSvgBtn').addEventListener('click', function(){
+  if (!lastDiagramSvg){ showToast('先に「構成図を描画」を押してください。'); return; }
+  downloadBlob(new Blob([lastDiagramSvg], {type:'image/svg+xml'}), '構成図.svg');
+});
+
+document.getElementById('dslFromPickBtn').addEventListener('click', function(){
+  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
+  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
+  var wd = parseFloat(document.getElementById('wd').value) || 0;
+  var cam = pickCamsCache.find(function(c){ return c.id === document.getElementById('pickCameraSelect').value; });
+  var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
+  if (!cam || !lens){
+    showStatus('dslInsertStatus', '選定計算タブでカメラとレンズを選択してから挿入してください（今は未選択です）。', false);
+    return;
+  }
+  var ta = document.getElementById('dslInput');
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + buildComboDSL(cam, lens, wd, fovX, fovY);
+  showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）をDSLに挿入しました。', true);
+});
+
+document.getElementById('dslFromEstimateBtn').addEventListener('click', async function(){
+  var items = await dbGetAll('estimateItems');
+  if (!items.length){
+    showStatus('dslInsertStatus', '見積もりが空です（見積もりタブで部品を追加してから挿入してください）。', false);
+    return;
+  }
+  var lines = [];
+  items.forEach(function(it){
+    var typeName = (it.category || 'その他').replace(/[()\/]/g, '');
+    var attrs = ['型式:' + it.label];
+    var qty = Math.max(1, Math.round(it.qty || 1));
+    for (var i = 0; i < qty; i++) lines.push(typeName + '(' + attrs.join(',') + ')');
+  });
+  var ta = document.getElementById('dslInput');
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + lines.join('\n');
+  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）をDSLに挿入しました。カメラ・レンズの接続（->）は手で追記してください。', true);
+});
+
+/* ===================== 初期化 ===================== */
+(async function initMasters(){
+  try{
+    await seedCamerasIfEmpty();
+    await seedLensesIfEmpty();
+    await seedPartsIfEmpty();
+    await renderCameras();
+    await renderLenses();
+    await renderParts();
+    await refreshEstItemOptions();
+    await renderEstimate();
+    await renderProjectHistory();
+  } catch(ex){
+    console.error('マスタ初期化エラー', ex);
+  }
+})();
+</script>
+</body>
+</html>
