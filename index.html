@@ -3603,22 +3603,54 @@ document.getElementById('dslFromPickBtn').addEventListener('click', function(){
   showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）をDSLに挿入しました。', true);
 });
 
+function buildEstimateChainDSL(items){
+  /* 数量ぶんインスタンス展開（カテゴリごとの配列に分類） */
+  var pools = { cam: [], lens: [], light: [], ctrl: [], power: [], other: [] };
+  items.forEach(function(it){
+    var cat = it.category || 'その他';
+    var typeName = cat.replace(/[()\/]/g, '');
+    var qty = Math.max(1, Math.round(it.qty || 1));
+    var bucket = 'other';
+    if (/カメラ/.test(cat)) bucket = 'cam';
+    else if (cat === 'レンズ') bucket = 'lens';
+    else if (cat === '照明') bucket = 'light';
+    else if (cat === 'コントローラー') bucket = 'ctrl';
+    else if (cat === '電源') bucket = 'power';
+    for (var i = 0; i < qty; i++) pools[bucket].push(typeName + '(型式:' + it.label + ')');
+  });
+
+  var chains = [];
+  /* レンズ -> カメラ（数が合う分だけペアリング） */
+  var lensCamN = Math.min(pools.lens.length, pools.cam.length);
+  for (var i = 0; i < lensCamN; i++) chains.push(pools.lens[i] + ' -> ' + pools.cam[i]);
+  /* 電源 -> コントローラー -> 照明（コントローラー基準でペアリング） */
+  for (var j = 0; j < pools.ctrl.length; j++){
+    var seg = [];
+    if (pools.power[j]) seg.push(pools.power[j]);
+    seg.push(pools.ctrl[j]);
+    if (pools.light[j]) seg.push(pools.light[j]);
+    chains.push(seg.join(' -> '));
+  }
+  /* 余り・その他は単独部品として列挙 */
+  var used = { power: pools.ctrl.length, light: pools.ctrl.length, cam: lensCamN, lens: lensCamN, ctrl: pools.ctrl.length };
+  ['cam','lens','light','ctrl','power'].forEach(function(b){
+    for (var k = used[b] || 0; k < pools[b].length; k++) chains.push(pools[b][k]);
+  });
+  pools.other.forEach(function(line){ chains.push(line); });
+
+  return chains.join('\n');
+}
+
 document.getElementById('dslFromEstimateBtn').addEventListener('click', async function(){
   var items = await dbGetAll('estimateItems');
   if (!items.length){
     showStatus('dslInsertStatus', '見積もりが空です（見積もりタブで部品を追加してから挿入してください）。', false);
     return;
   }
-  var lines = [];
-  items.forEach(function(it){
-    var typeName = (it.category || 'その他').replace(/[()\/]/g, '');
-    var attrs = ['型式:' + it.label];
-    var qty = Math.max(1, Math.round(it.qty || 1));
-    for (var i = 0; i < qty; i++) lines.push(typeName + '(' + attrs.join(',') + ')');
-  });
+  var dsl = buildEstimateChainDSL(items);
   var ta = document.getElementById('dslInput');
-  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + lines.join('\n');
-  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）をDSLに挿入しました。カメラ・レンズの接続（->）は手で追記してください。', true);
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + dsl;
+  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）を、レンズ→カメラ／電源→コントローラー→照明の典型パターンで自動接続してDSLに挿入しました。実際と違う場合はテキストを直接編集してください。', true);
 });
 
 /* ===================== 初期化 ===================== */
