@@ -1323,12 +1323,54 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <div class="eyebrow">DSL Input</div>
-              <h2>DSL入力</h2>
+              <div class="eyebrow">Add Part</div>
+              <h2>パーツを追加</h2>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label>種別</label>
+              <select id="dslPartType">
+                <option value="エリアカメラ">エリアカメラ</option>
+                <option value="ラインカメラ">ラインカメラ</option>
+                <option value="3Dカメラ">3Dカメラ</option>
+                <option value="レンズ">レンズ</option>
+                <option value="アダプター">アダプター</option>
+                <option value="照明">照明</option>
+                <option value="コントローラー">コントローラー</option>
+                <option value="電源">電源</option>
+                <option value="ケーブル">ケーブル</option>
+                <option value="PLC">PLC</option>
+                <option value="__custom">その他（自由入力）</option>
+              </select>
+              <input type="text" id="dslPartTypeCustom" class="hidden" placeholder="種別名を入力" style="margin-top:6px;">
+            </div>
+            <div>
+              <label>型式</label>
+              <input type="text" id="dslPartModel" placeholder="例：StellaController2.0">
+            </div>
+            <div>
+              <label>数量</label>
+              <input type="number" id="dslPartQty" value="1" min="1">
+            </div>
+            <div class="full">
+              <label>追加の属性（任意・<span class="unit">key:value,key:value の形式</span>）</label>
+              <input type="text" id="dslPartExtraAttrs" placeholder="例：WD:260mm,焦点距離:16mm">
+            </div>
+          </div>
+          <button class="calc-btn" id="dslPartAddBtn" style="margin-top:14px;">＋ 図に追加</button>
+          <div class="status-msg" id="dslInsertStatus" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="eyebrow">DSL</div>
+              <h2>DSLテキスト（直接編集も可）</h2>
             </div>
           </div>
           <p style="font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:8px;">
-            <code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(属性:値,...) -> 種別(...)</code> の形式で記述します。1行＝1つの接続チェーン。矢印なしの行は単独部品として描画されます。<br>
+            上の「パーツを追加」で入れた部品がここに並びます。直接書き足すこともできます：<code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(属性:値,...) -> 種別(...)</code><br>
             I/O配線には信号名を書くと配線色が自動で付きます：<code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(...) =信号名=> 種別(...)</code>（例：<code style="font-family:var(--mono); font-size:10.5px;">=Power=&gt;</code> <code style="font-family:var(--mono); font-size:10.5px;">=GPIO=&gt;</code> <code style="font-family:var(--mono); font-size:10.5px;">=GND=&gt;</code>）
           </p>
           <details class="dsl-rules" style="margin-bottom:12px;">
@@ -1348,18 +1390,14 @@
               </ul>
             </div>
           </details>
-          <textarea class="note-textarea" id="dslInput" rows="8" style="font-family:var(--mono); font-size:12px;" placeholder="レンズ(型式:KOWA LM16JC10M,焦点距離:16mm)&#10; -> エリアカメラ(型式:Vieworks VC-1234MX,WD:260mm)&#10;エリアカメラ(型式:SVB-xxx) =GPIO=> コントローラー(型式:StellaController2.0)&#10;エリアカメラ(型式:SVB-xxx) =GND=> コントローラー(型式:StellaController2.0)&#10;電源(型式:24VDC 240W) =Power=> コントローラー(型式:StellaController2.0)"></textarea>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-            <button class="btn" id="dslFromPickBtn">現在の選定から挿入</button>
-            <button class="btn" id="dslFromEstimateBtn">見積もり全体から挿入</button>
-            <div class="toolbar-spacer"></div>
+          <textarea class="note-textarea" id="dslInput" rows="8" style="font-family:var(--mono); font-size:12px;" placeholder="ここは空のままでもOKです。上の「パーツを追加」で埋まっていきます。"></textarea>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; justify-content:flex-end;">
             <button class="btn primary" id="dslRenderBtn">構成図を描画</button>
           </div>
-          <div class="status-msg" id="dslInsertStatus" style="margin-top:10px;"></div>
 
           <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
             <div style="font-size:11.5px; color:var(--text-dim); margin-bottom:8px; font-weight:600;">
-              接続を追加（自動接続で繋がらなかった部品を、選んで手動で繋ぐ）
+              接続を追加（登録した部品どうしを、選んで自由に繋ぐ）
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
               <select id="dslConnFrom" style="flex:1; min-width:150px;"></select>
@@ -3779,6 +3817,43 @@ document.getElementById('dslDownloadSvgBtn').addEventListener('click', function(
 });
 
 /* ---- 接続を追加（自動接続の限界を、手動2点接続で補う） ---- */
+/* ---- パーツを追加（自由登録） ---- */
+document.getElementById('dslPartType').addEventListener('change', function(){
+  document.getElementById('dslPartTypeCustom').classList.toggle('hidden', this.value !== '__custom');
+});
+
+document.getElementById('dslPartAddBtn').addEventListener('click', function(){
+  var typeSel = document.getElementById('dslPartType').value;
+  var type = typeSel === '__custom' ? document.getElementById('dslPartTypeCustom').value.trim() : typeSel;
+  var model = document.getElementById('dslPartModel').value.trim();
+  var qty = Math.max(1, Math.round(parseFloat(document.getElementById('dslPartQty').value) || 1));
+  var extra = document.getElementById('dslPartExtraAttrs').value.trim();
+
+  if (!type){
+    showStatus('dslInsertStatus', '種別を入力してください。', false);
+    return;
+  }
+  if (!model){
+    showStatus('dslInsertStatus', '型式を入力してください。', false);
+    return;
+  }
+
+  var blocks = [];
+  for (var i=1;i<=qty;i++){
+    var attrs = '型式:' + model + (extra ? ',' + extra : '') + (qty>1 ? ',号機:' + i : '');
+    blocks.push(type + '(' + attrs + ')');
+  }
+  var ta = document.getElementById('dslInput');
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + blocks.join('\n');
+
+  document.getElementById('dslPartModel').value = '';
+  document.getElementById('dslPartExtraAttrs').value = '';
+  document.getElementById('dslPartQty').value = '1';
+
+  showStatus('dslInsertStatus', type + '（' + model + '）を' + qty + '件、図に追加しました。「構成図を描画」で反映されます。', true);
+  refreshDSLConnOptions();
+});
+
 function refreshDSLConnOptions(){
   var chains = parseDSL(document.getElementById('dslInput').value);
   var seen = {}, options = [];
@@ -3819,25 +3894,6 @@ document.getElementById('dslConnAddBtn').addEventListener('click', function(){
   ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + from + arrow + to;
   document.getElementById('dslConnSignal').value = '';
   showStatus('dslInsertStatus', '接続を追加しました：' + from + (signal ? '　['+signal+']　→　' : '　→　') + to + '。「構成図を描画」を押して反映してください。', true);
-  refreshDSLConnOptions();
-});
-
-document.getElementById('dslFromPickBtn').addEventListener('click', function(){
-  var fovX = parseFloat(document.getElementById('fovX').value) || 0;
-  var fovY = parseFloat(document.getElementById('fovY').value) || 0;
-  var wd = parseFloat(document.getElementById('wd').value) || 0;
-  var cam = pickCamsCache.find(function(c){ return c.id === document.getElementById('pickCameraSelect').value; });
-  var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
-  if (!cam || !lens){
-    showStatus('dslInsertStatus', '選定計算タブでカメラとレンズを選択してから挿入してください（今は未選択です）。', false);
-    return;
-  }
-  var qty = Math.max(1, Math.round(parseFloat(document.getElementById('pickQty').value) || 1));
-  var blocks = [];
-  for (var i=1;i<=qty;i++){ blocks.push(buildComboDSL(cam, lens, wd, fovX, fovY, qty>1 ? i : 0)); }
-  var ta = document.getElementById('dslInput');
-  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + blocks.join('\n');
-  showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）を' + qty + '台分挿入しました' + (qty>1?'（号機番号で区別しています）':'') + '。', true);
   refreshDSLConnOptions();
 });
 
@@ -3896,19 +3952,6 @@ function buildEstimateChainDSL(items, includePrice){
 
   return chains.join('\n');
 }
-
-document.getElementById('dslFromEstimateBtn').addEventListener('click', async function(){
-  var items = await dbGetAll('estimateItems');
-  if (!items.length){
-    showStatus('dslInsertStatus', '見積もりが空です（見積もりタブで部品を追加してから挿入してください）。', false);
-    return;
-  }
-  var dsl = buildEstimateChainDSL(items);
-  var ta = document.getElementById('dslInput');
-  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + dsl;
-  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）を、レンズ→カメラ／電源→コントローラー→照明の典型パターンで自動接続してDSLに挿入しました。それ以外（コントローラー単独・ケーブルなど）は下の「接続を追加」で繋いでください。', true);
-  refreshDSLConnOptions();
-});
 
 /* ===================== 初期化 ===================== */
 (async function initMasters(){
