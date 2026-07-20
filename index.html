@@ -816,6 +816,23 @@
             </div>
           </div>
           <div class="status-msg err" id="mbWarn"></div>
+
+          <div id="scanRateSection" class="hidden" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+            <div class="form-row">
+              <label>検出分解能（副走査方向） <span class="unit">mm/px（既定は上の「分解能」計算結果を使用。手動上書き可）</span></label>
+              <input type="number" step="0.001" id="scanPixelResMm" placeholder="例：0.02">
+            </div>
+            <div class="readout-grid" style="grid-template-columns:repeat(2,1fr);">
+              <div class="readout">
+                <div class="k">必要ラインレート</div>
+                <div class="v accent" id="scanRateOut">—<span class="unit">Hz</span></div>
+              </div>
+              <div class="readout">
+                <div class="k">カメラ上限との比較</div>
+                <div class="v" id="scanRateCheckOut" style="font-size:15px;">—</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- サイクルタイム内訳 -->
@@ -1551,6 +1568,7 @@ document.querySelectorAll('#camTypeSeg button').forEach(function(b){
     document.querySelectorAll('#camTypeSeg button').forEach(function(x){ x.classList.remove('active'); });
     b.classList.add('active');
     runCalc();
+    computeMotionBlur();
   });
 });
 
@@ -1894,26 +1912,67 @@ function computeMotionBlur(){
     warnEl.textContent = '分解能が未計算です。上の「計算する」で画素数まで入力すると連動します。';
     warnEl.className = 'status-msg show err';
     lastExposureUs = 0;
+  } else {
+    warnEl.className = 'status-msg';
+    var blurMm = allowPx * lastResolutionMm;
+    document.getElementById('mbBlurOut').innerHTML = blurMm.toFixed(4) + '<span class="unit">mm</span>';
+
+    if (v > 0){
+      var expSec = blurMm / v;
+      var expUs = expSec * 1e6;
+      lastExposureUs = expUs;
+      var label = expUs >= 1000 ? (expUs/1000).toFixed(2) + '<span class="unit">ms</span>' : expUs.toFixed(1) + '<span class="unit">µs</span>';
+      document.getElementById('mbExposureOut').innerHTML = label;
+    } else {
+      document.getElementById('mbExposureOut').innerHTML = '—<span class="unit">µs</span>';
+      lastExposureUs = 0;
+    }
+  }
+
+  computeScanRate(v);
+}
+
+/* ---------- スキャンレート（ラインカメラ用） ---------- */
+function computeScanRate(v){
+  var typeVal = document.querySelector('#camTypeSeg button.active').dataset.val;
+  var section = document.getElementById('scanRateSection');
+  if (typeVal !== 'line'){
+    section.classList.add('hidden');
     return;
   }
-  warnEl.className = 'status-msg';
+  section.classList.remove('hidden');
 
-  var blurMm = allowPx * lastResolutionMm;
-  document.getElementById('mbBlurOut').innerHTML = blurMm.toFixed(4) + '<span class="unit">mm</span>';
+  var override = parseFloat(document.getElementById('scanPixelResMm').value);
+  var resMm = override > 0 ? override : lastResolutionMm; /* mm/px（副走査方向の検出分解能） */
 
-  if (v > 0){
-    var expSec = blurMm / v;
-    var expUs = expSec * 1e6;
-    lastExposureUs = expUs;
-    var label = expUs >= 1000 ? (expUs/1000).toFixed(2) + '<span class="unit">ms</span>' : expUs.toFixed(1) + '<span class="unit">µs</span>';
-    document.getElementById('mbExposureOut').innerHTML = label;
+  var rateOutEl = document.getElementById('scanRateOut');
+  var checkEl = document.getElementById('scanRateCheckOut');
+
+  if (!resMm || !v){
+    rateOutEl.innerHTML = '—<span class="unit">Hz</span>';
+    checkEl.textContent = '搬送速度と分解能（mm/px）が揃うと計算されます';
+    checkEl.className = 'v';
+    return;
+  }
+
+  var lineRateHz = v / resMm; /* スキャンレート = ライン速度 ÷ 検出分解能 */
+  var label = lineRateHz >= 1000 ? (lineRateHz/1000).toFixed(2) + '<span class="unit">kHz</span>' : lineRateHz.toFixed(0) + '<span class="unit">Hz</span>';
+  rateOutEl.innerHTML = label;
+
+  var cam = calcSelectedCamera;
+  if (cam && cam.cameraType === 'ライン' && cam.maxFps){
+    if (lineRateHz <= cam.maxFps){
+      checkEl.innerHTML = '<span class="badge ok">✓ カメラ上限内（最大' + cam.maxFps.toLocaleString('ja-JP') + 'Hz）</span>';
+    } else {
+      checkEl.innerHTML = '<span class="badge adapter">要確認：カメラ上限（' + cam.maxFps.toLocaleString('ja-JP') + 'Hz）を超過</span>';
+    }
   } else {
-    document.getElementById('mbExposureOut').innerHTML = '—<span class="unit">µs</span>';
-    lastExposureUs = 0;
+    checkEl.textContent = 'カメラをマスタから選択すると上限と比較します';
+    checkEl.className = 'v';
   }
 }
 
-['mb_diameter','mb_period','mb_speed','mb_speedUnit','mb_allowPx'].forEach(function(id){
+['mb_diameter','mb_period','mb_speed','mb_speedUnit','mb_allowPx','scanPixelResMm'].forEach(function(id){
   document.getElementById(id).addEventListener('input', computeMotionBlur);
   document.getElementById(id).addEventListener('change', computeMotionBlur);
 });
