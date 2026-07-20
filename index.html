@@ -981,6 +981,10 @@
             </button>
             <input type="file" id="allImportFile" accept=".csv" style="display:none;">
           </div>
+          <label style="display:flex; align-items:center; gap:7px; margin-top:12px; font-size:12px; color:var(--text-dim); cursor:pointer;">
+            <input type="checkbox" id="clearBeforeImport" style="width:15px; height:15px;">
+            読み込み前に既存のカメラ・レンズ・部品マスタを全消去してから読み込む（置き換えモード）
+          </label>
           <div class="autosave-note" id="allImportStatus" style="margin-top:10px;">カメラ・レンズ・部品をまとめて1つのCSVで管理します（列は多めですが、種別ごとに使う列だけ埋まります）。</div>
         </div>
 
@@ -2822,8 +2826,14 @@ document.getElementById('allImportFile').addEventListener('change', function(e){
         return;
       }
 
-      /* --- フェーズ2：既存データをバックアップしてから書き込み --- */
+      /* --- フェーズ2：既存データをバックアップしてから書き込み（置き換えモードなら先に全消去） --- */
       backup = await backupStores(['cameras','lenses','otherParts']);
+      var replaceMode = document.getElementById('clearBeforeImport').checked;
+      if (replaceMode){
+        for (var s=0;s<backup.cameras.length;s++) await dbDelete('cameras', backup.cameras[s].id);
+        for (var s2=0;s2<backup.lenses.length;s2++) await dbDelete('lenses', backup.lenses[s2].id);
+        for (var s3=0;s3<backup.otherParts.length;s3++) await dbDelete('otherParts', backup.otherParts[s3].id);
+      }
       var counts = {camera:0, lens:0, part:0};
       for (var i=0;i<validated.length;i++){
         var v = validated[i];
@@ -2833,7 +2843,7 @@ document.getElementById('allImportFile').addEventListener('change', function(e){
         else if (type === 'lens'){ await dbPut('lenses', v); counts.lens++; }
         else { await dbPut('otherParts', v); counts.part++; }
       }
-      status.textContent = '読み込み完了：カメラ' + counts.camera + '件／レンズ' + counts.lens + '件／部品' + counts.part + '件';
+      status.textContent = (replaceMode ? '（既存マスタを全消去して置き換え）' : '') + '読み込み完了：カメラ' + counts.camera + '件／レンズ' + counts.lens + '件／部品' + counts.part + '件';
       status.className = 'autosave-note saved';
       status.style.whiteSpace = '';
       await renderCameras();
