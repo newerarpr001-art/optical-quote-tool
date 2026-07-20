@@ -455,7 +455,7 @@
   }
   .toast{
     max-width:420px; background:#27324B; border:1px solid #27324B;
-    color:var(--text); font-family:var(--sans); font-size:12.5px; line-height:1.6;
+    color:#FFFFFF; font-family:var(--sans); font-size:12.5px; line-height:1.6;
     padding:11px 16px; border-radius:9px; box-shadow:0 10px 30px rgba(0,0,0,0.4);
     opacity:0; transform:translateY(8px); transition: opacity .2s ease, transform .2s ease;
   }
@@ -1310,8 +1310,8 @@
               <ul>
                 <li>各行が <code>種別(型式:...)</code> の形でノードとして出力されます。数量分だけ行が繰り返されます。</li>
                 <li>カメラ種別は <code>エリアカメラ</code>／<code>ラインカメラ</code>／<code>3Dカメラ</code> のまま出力します。</li>
-                <li>この一括コピーには接続線（→）は含まれません。誰が何に繋がるかは現場ごとに違うため、あえて自動生成していません。</li>
-                <li>コピーしたテキストは、FA構成図DSLツールの「DSL入力」欄に貼り付けたあと、必要な接続を追記してください。</li>
+                <li>レンズ→カメラ、電源→コントローラー→照明の典型パターンで自動的に接続線（→）を付けます（数が合う分だけペアリング。残りは単独部品として出力）。実際の配線と異なる場合は、貼り付け後にテキストを直接編集してください。</li>
+                <li>コピーしたテキストは、構成図タブの「DSL入力」欄、またはFA構成図DSLツールの「DSL入力」欄に貼り付けられます。</li>
                 <li>個別の組み合わせ（レンズ→カメラ、マウント不一致時のアダプター挿入まで含む）は、選定計算タブの「カメラ・レンズを選んで見積もりに追加」パネルからコピーする方が正確です。</li>
               </ul>
             </div>
@@ -1327,10 +1327,28 @@
               <h2>DSL入力</h2>
             </div>
           </div>
-          <p style="font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:12px;">
-            <code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(属性:値,...) -> 種別(...)</code> の形式で記述します。1行＝1つの接続チェーン。矢印なしの行は単独部品として描画されます。
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:8px;">
+            <code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(属性:値,...) -> 種別(...)</code> の形式で記述します。1行＝1つの接続チェーン。矢印なしの行は単独部品として描画されます。<br>
+            I/O配線には信号名を書くと配線色が自動で付きます：<code style="font-family:var(--mono); font-size:11px; color:var(--brass); background:var(--brass-dim); padding:1px 5px; border-radius:4px;">種別(...) =信号名=> 種別(...)</code>（例：<code style="font-family:var(--mono); font-size:10.5px;">=Power=&gt;</code> <code style="font-family:var(--mono); font-size:10.5px;">=GPIO=&gt;</code> <code style="font-family:var(--mono); font-size:10.5px;">=GND=&gt;</code>）
           </p>
-          <textarea class="note-textarea" id="dslInput" rows="8" style="font-family:var(--mono); font-size:12px;" placeholder="レンズ(型式:KOWA LM16JC10M,焦点距離:16mm)&#10; -> エリアカメラ(型式:Vieworks VC-1234MX,WD:260mm)&#10;照明(型式:CCS HPR2-100SW)&#10;コントローラー(型式:CCS PSB-2432-24VS)"></textarea>
+          <details class="dsl-rules" style="margin-bottom:12px;">
+            <summary>配線色の目安</summary>
+            <div class="dsl-rules-body">
+              <ul>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF8C00;margin-right:5px;"></span>Power／電源／Vin／24V／DC_PWR → オレンジ</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#E8C300;margin-right:5px;"></span>Opt-In（トリガ入力） → 黄</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#8B5CF6;margin-right:5px;"></span>GPIO／トリガ → 紫</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#2D6FF7;margin-right:5px;"></span>Opt-Iso Out（露光信号・シャッター） → 青</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1E9E5F;margin-right:5px;"></span>Opto I/O GND（絶縁GND） → 緑</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#6C7A99;margin-right:5px;"></span>Power GND／GND → 灰</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#E85D9A;margin-right:5px;"></span>A相（エンコーダ） → ピンク</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#8B5E34;margin-right:5px;"></span>B相（エンコーダ） → 茶</li>
+                <li><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#6D4AA8;margin-right:5px;"></span>DI／DO／PCOM → 紫系</li>
+                <li>信号名を書かない矢印（<code>-&gt;</code>のみ）は光学系の接続とみなし、グレーで描画します。</li>
+              </ul>
+            </div>
+          </details>
+          <textarea class="note-textarea" id="dslInput" rows="8" style="font-family:var(--mono); font-size:12px;" placeholder="レンズ(型式:KOWA LM16JC10M,焦点距離:16mm)&#10; -> エリアカメラ(型式:Vieworks VC-1234MX,WD:260mm)&#10;エリアカメラ(型式:SVB-xxx) =GPIO=> コントローラー(型式:StellaController2.0)&#10;エリアカメラ(型式:SVB-xxx) =GND=> コントローラー(型式:StellaController2.0)&#10;電源(型式:24VDC 240W) =Power=> コントローラー(型式:StellaController2.0)"></textarea>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="dslFromPickBtn">現在の選定から挿入</button>
             <button class="btn" id="dslFromEstimateBtn">見積もり全体から挿入</button>
@@ -2988,19 +3006,9 @@ document.getElementById('estimateCopyDslBtn').addEventListener('click', async fu
     alert('見積もりが空です。先に部品を追加してください。');
     return;
   }
-  var lines = [];
-  items.forEach(function(it){
-    var typeName = (it.category || 'その他').replace(/[()\/]/g, '');
-    var attrs = ['型式:' + it.label];
-    if (it.unitPrice) attrs.push('参考単価:' + it.unitPrice + '円');
-    var qty = Math.max(1, Math.round(it.qty || 1));
-    for (var i = 0; i < qty; i++){
-      lines.push(typeName + '(' + attrs.join(',') + ')');
-    }
-  });
-  var dsl = lines.join('\n');
+  var dsl = buildEstimateChainDSL(items, true);
   var ok = await copyTextWithFallback(dsl);
-  if (ok) showToast('見積もり全体をDSLスニペットとしてコピーしました。接続（→）は含まれていないので、構成図ツール側で配線してください。');
+  if (ok) showToast('見積もり全体を、レンズ→カメラ／電源→コントローラー→照明の典型パターンで自動接続してDSLコピーしました。実際と違う場合は構成図タブで編集してください。');
 });
 
 /* ===================== 案件履歴（スナップショット保存・呼び出し・比較） ===================== */
@@ -3489,31 +3497,45 @@ document.getElementById('aiConsultAskBtn').addEventListener('click', async funct
 /* DSLパース：行を接続チェーンにまとめ、各ノードを {type, attrs:[{k,v}]} に分解 */
 function parseDSL(text){
   var rawLines = text.split(/\r\n|\n/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length; });
-  /* 「 -> 」で始まる継続行を前の行に連結 */
+  /* 「->」または「=信号名=>」で始まる継続行を前の行に連結 */
   var chainsRaw = [];
   rawLines.forEach(function(l){
-    if (/^->/.test(l) && chainsRaw.length){
+    if (/^(->|=.+=>)/.test(l) && chainsRaw.length){
       chainsRaw[chainsRaw.length-1] += ' ' + l;
     } else {
       chainsRaw.push(l);
     }
   });
-  return chainsRaw.map(function(chain){
-    return chain.split('->').map(function(seg){
-      seg = seg.trim();
-      var m = seg.match(/^([^(]+)(?:\(([^)]*)\))?$/);
-      if (!m) return {type: seg, attrs: []};
-      var attrs = [];
-      if (m[2]){
-        m[2].split(',').forEach(function(pair){
-          var i = pair.indexOf(':');
-          if (i > -1) attrs.push({k: pair.slice(0,i).trim(), v: pair.slice(i+1).trim()});
-          else if (pair.trim()) attrs.push({k:'', v: pair.trim()});
-        });
+  /* ノード解析 */
+  function parseNode(seg){
+    seg = seg.trim();
+    var m = seg.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+    if (!m) return {type: seg, attrs: []};
+    var attrs = [];
+    if (m[2]){
+      m[2].split(',').forEach(function(pair){
+        var i = pair.indexOf(':');
+        if (i > -1) attrs.push({k: pair.slice(0,i).trim(), v: pair.slice(i+1).trim()});
+        else if (pair.trim()) attrs.push({k:'', v: pair.trim()});
+      });
+    }
+    return {type: m[1].trim(), attrs: attrs};
+  }
+  /* 「->」（ラベルなし）と「=信号名=>」（ラベルあり配線）の両方に対応してノード列とエッジ列に分割 */
+  return chainsRaw.map(function(chainStr){
+    var parts = chainStr.split(/(->|=[^=]+=>)/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length; });
+    var nodes = [], edgeLabels = [];
+    for (var i=0;i<parts.length;i++){
+      if (i % 2 === 0){
+        var n = parseNode(parts[i]);
+        if (n.type) nodes.push(n);
+      } else {
+        var m2 = parts[i].match(/^=([^=]+)=>$/);
+        edgeLabels.push(m2 ? m2[1].trim() : '');
       }
-      return {type: m[1].trim(), attrs: attrs};
-    }).filter(function(n){ return n.type; });
-  }).filter(function(c){ return c.length; });
+    }
+    return {nodes: nodes, edgeLabels: edgeLabels};
+  }).filter(function(c){ return c.nodes.length; });
 }
 
 /* 種別 → ノード色 */
@@ -3528,24 +3550,43 @@ function dslNodeColor(type){
   return '#6C7A99';
 }
 
+/* 信号名 → 配線色（現場の配線資料の芯線色定義に準拠） */
+var SIGNAL_COLORS = [
+  { test: /opto.*gnd|絶縁.*グラウンド|opto\s*i\/o\s*ground/i, color:'#1E9E5F', label:'Opto I/O GND（絶縁GND・緑）' },
+  { test: /gnd|グラウンド|ground/i,                            color:'#6C7A99', label:'Power GND（電源GND・灰）' },
+  { test: /opt-?iso|iso.?out|露光|シャッター|exposure/i,        color:'#2D6FF7', label:'Opt-Iso Out（露光信号・青）' },
+  { test: /opt-?in|オプトイン/i,                                color:'#E8C300', label:'Opt-In（トリガ入力・黄）' },
+  { test: /gpio|トリガ|trigger/i,                               color:'#8B5CF6', label:'GPIO（トリガ・紫）' },
+  { test: /a相|phase\s*a|line\s*0/i,                            color:'#E85D9A', label:'A相（エンコーダ・ピンク）' },
+  { test: /b相|phase\s*b|line\s*3/i,                            color:'#8B5E34', label:'B相（エンコーダ・茶）' },
+  { test: /pcom|^di\b|^do\b/i,                                  color:'#6D4AA8', label:'DI/DO・PCOM（紫系）' },
+  { test: /power|電源|vin|24v|dc[\s_]?pwr/i,                    color:'#FF8C00', label:'Power（電源・オレンジ）' }
+];
+function signalColor(label){
+  if (!label) return null;
+  for (var i=0;i<SIGNAL_COLORS.length;i++){ if (SIGNAL_COLORS[i].test.test(label)) return SIGNAL_COLORS[i].color; }
+  return '#4A5670'; /* 未知の信号名：濃いグレーで区別だけする */
+}
+
 function renderDSLDiagram(chains){
-  var NODE_W = 200, ATTR_LINE_H = 15, HEAD_H = 30, PAD = 10, GAP_X = 56, GAP_Y = 26, MAX_ATTRS = 5;
+  var NODE_W = 200, ATTR_LINE_H = 15, HEAD_H = 30, PAD = 10, GAP_X = 64, GAP_Y = 26, MAX_ATTRS = 5;
   var rows = chains.map(function(chain){
     var maxAttrs = 0;
-    chain.forEach(function(n){ maxAttrs = Math.max(maxAttrs, Math.min(n.attrs.length, MAX_ATTRS)); });
+    chain.nodes.forEach(function(n){ maxAttrs = Math.max(maxAttrs, Math.min(n.attrs.length, MAX_ATTRS)); });
     var h = HEAD_H + (maxAttrs ? maxAttrs*ATTR_LINE_H + PAD : PAD);
     return {chain: chain, h: h};
   });
-  var totalW = Math.max.apply(null, rows.map(function(r){ return r.chain.length * NODE_W + (r.chain.length-1) * GAP_X; })) + 20;
+  var totalW = Math.max.apply(null, rows.map(function(r){ return r.chain.nodes.length * NODE_W + (r.chain.nodes.length-1) * GAP_X; })) + 20;
   var totalH = rows.reduce(function(a,r){ return a + r.h + GAP_Y; }, 10);
 
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">';
-  svg += '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6C7A99"/></marker></defs>';
+  var defs = '<marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6C7A99"/></marker>';
+  var usedColors = {};
 
   var y = 10;
   rows.forEach(function(row){
     var x = 10;
-    row.chain.forEach(function(n, i){
+    row.chain.nodes.forEach(function(n, i){
       var color = dslNodeColor(n.type);
       var attrs = n.attrs.slice(0, MAX_ATTRS);
       /* ノード枠 */
@@ -3562,15 +3603,30 @@ function renderDSLDiagram(chains){
       if (n.attrs.length > MAX_ATTRS){
         svg += '<text x="'+(x+10)+'" y="'+(y+HEAD_H+14+MAX_ATTRS*ATTR_LINE_H)+'" font-size="9" fill="#9AA8C4">…ほか'+(n.attrs.length-MAX_ATTRS)+'項目</text>';
       }
-      /* 矢印 */
-      if (i < row.chain.length - 1){
+      /* 矢印（信号名があれば配線色・ラベル付き） */
+      if (i < row.chain.nodes.length - 1){
         var ay = y + row.h/2;
-        svg += '<line x1="'+(x+NODE_W)+'" y1="'+ay+'" x2="'+(x+NODE_W+GAP_X-8)+'" y2="'+ay+'" stroke="#6C7A99" stroke-width="1.8" marker-end="url(#arrow)"/>';
+        var edgeLabel = row.chain.edgeLabels[i] || '';
+        var col = signalColor(edgeLabel) || '#6C7A99';
+        var markerId = 'arrow-default';
+        if (edgeLabel){
+          markerId = 'arrow-' + col.replace('#','');
+          if (!usedColors[col]){
+            usedColors[col] = true;
+            defs += '<marker id="'+markerId+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="'+col+'"/></marker>';
+          }
+        }
+        svg += '<line x1="'+(x+NODE_W)+'" y1="'+ay+'" x2="'+(x+NODE_W+GAP_X-8)+'" y2="'+ay+'" stroke="'+col+'" stroke-width="'+(edgeLabel?2.4:1.8)+'" marker-end="url(#'+markerId+')"/>';
+        if (edgeLabel){
+          svg += '<text x="'+(x+NODE_W+GAP_X/2)+'" y="'+(ay-6)+'" text-anchor="middle" font-size="9" fill="'+col+'" font-weight="700">'+escXml(edgeLabel)+'</text>';
+        }
       }
       x += NODE_W + GAP_X;
     });
     y += row.h + GAP_Y;
   });
+  svg = svg.replace('<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">',
+    '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace"><defs>'+defs+'</defs>');
   svg += '</svg>';
   return svg;
 }
@@ -3613,7 +3669,7 @@ document.getElementById('dslFromPickBtn').addEventListener('click', function(){
   showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）をDSLに挿入しました。', true);
 });
 
-function buildEstimateChainDSL(items){
+function buildEstimateChainDSL(items, includePrice){
   /* 数量ぶんインスタンス展開（カテゴリごとの配列に分類） */
   var pools = { cam: [], lens: [], light: [], ctrl: [], power: [], other: [] };
   items.forEach(function(it){
@@ -3626,7 +3682,8 @@ function buildEstimateChainDSL(items){
     else if (cat === '照明') bucket = 'light';
     else if (cat === 'コントローラー') bucket = 'ctrl';
     else if (cat === '電源') bucket = 'power';
-    for (var i = 0; i < qty; i++) pools[bucket].push(typeName + '(型式:' + it.label + ')');
+    var attrs = '型式:' + it.label + (includePrice && it.unitPrice ? ',参考単価:' + it.unitPrice + '円' : '');
+    for (var i = 0; i < qty; i++) pools[bucket].push(typeName + '(' + attrs + ')');
   });
 
   var chains = [];
