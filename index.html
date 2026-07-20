@@ -1356,6 +1356,20 @@
             <button class="btn primary" id="dslRenderBtn">構成図を描画</button>
           </div>
           <div class="status-msg" id="dslInsertStatus" style="margin-top:10px;"></div>
+
+          <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+            <div style="font-size:11.5px; color:var(--text-dim); margin-bottom:8px; font-weight:600;">
+              接続を追加（自動接続で繋がらなかった部品を、選んで手動で繋ぐ）
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <select id="dslConnFrom" style="flex:1; min-width:150px;"></select>
+              <span style="color:var(--text-faint); font-family:var(--mono);">→</span>
+              <select id="dslConnTo" style="flex:1; min-width:150px;"></select>
+              <input type="text" id="dslConnSignal" placeholder="信号名（任意・例：GPIO）" style="width:170px; background:var(--panel-2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--sans); font-size:12.5px; padding:9px 11px; outline:none;">
+              <button class="btn" id="dslConnAddBtn">この接続を追加</button>
+              <button class="btn" id="dslConnRefreshBtn" title="DSL入力欄を直接編集した後は押してください">候補を更新</button>
+            </div>
+          </div>
         </div>
 
         <div class="card table-card">
@@ -1481,6 +1495,7 @@ document.querySelectorAll('.nav-item').forEach(function(el){
       document.getElementById('tab-'+t).classList.toggle('hidden', t !== el.dataset.tab);
     });
     if (el.dataset.tab === 'history' && typeof renderProjectHistory === 'function') renderProjectHistory();
+    if (el.dataset.tab === 'diagram' && typeof refreshDSLConnOptions === 'function') refreshDSLConnOptions();
   });
 });
 
@@ -1784,10 +1799,11 @@ document.getElementById('pickCopyDslBtn').addEventListener('click', async functi
   var lens = pickLensesCache.find(function(l){ return l.id === document.getElementById('pickLensSelect').value; });
   if (!cam || !lens){ alert('カメラとレンズを選択してください。'); return; }
   var qty = Math.max(1, Math.round(parseFloat(document.getElementById('pickQty').value) || 1));
-  var singleDsl = buildComboDSL(cam, lens, wd, fovX, fovY);
-  var dsl = Array(qty).fill(singleDsl).join('\n\n'); /* 数量ぶんループ（DSLルールに準拠） */
+  var blocks = [];
+  for (var i=1;i<=qty;i++){ blocks.push(buildComboDSL(cam, lens, wd, fovX, fovY, qty>1 ? i : 0)); } /* 号機番号で複数台を区別 */
+  var dsl = blocks.join('\n\n');
   var ok = await copyTextWithFallback(dsl);
-  if (ok) showToast('DSLスニペットをコピーしました（' + qty + 'セット分）。FA構成図DSLツールのDSL入力欄に貼り付けてください。');
+  if (ok) showToast('DSLスニペットをコピーしました（' + qty + 'セット分' + (qty>1?'・号機番号で区別':'') + '）。FA構成図DSLツールのDSL入力欄に貼り付けてください。');
 });
 
 document.getElementById('pickAddEstBtn').addEventListener('click', async function(){
@@ -2083,21 +2099,23 @@ async function copyTextWithFallback(text){
 function camDSLType(cam){
   return cam.cameraType === 'ライン' ? 'ラインカメラ' : (cam.cameraType === '3D' ? '3Dカメラ' : 'エリアカメラ');
 }
-function buildComboDSL(cam, lens, wd, fovX, fovY){
+function buildComboDSL(cam, lens, wd, fovX, fovY, unitNo){
   var lensAttrs = ['型式:' + lens.maker + ' ' + lens.model];
   if (lens.focalLengthMm) lensAttrs.push('焦点距離:' + lens.focalLengthMm + 'mm');
   if (lens.lensType === 'テレセントリック') lensAttrs.push('種別:テレセントリック');
+  if (unitNo) lensAttrs.push('号機:' + unitNo);
   var camAttrs = ['型式:' + cam.maker + ' ' + cam.model];
   if (wd) camAttrs.push('WD:' + wd + 'mm');
   if (fovX && fovY) camAttrs.push('視野:' + fovX + 'x' + fovY + 'mm');
   if (cam.pixelsH) camAttrs.push('画素数:' + cam.pixelsH + 'x' + cam.pixelsV);
   if (cam.mount) camAttrs.push('マウント:' + cam.mount);
+  if (unitNo) camAttrs.push('号機:' + unitNo);
 
   var lines = ['レンズ(' + lensAttrs.join(',') + ')'];
   var mountOk = lens.mount === cam.mount;
   if (!mountOk){
     /* FA構成図DSLツールのドメインルール：マウントが合わない場合はレンズ→アダプター→カメラ */
-    lines.push(' -> アダプター(変換:' + (lens.mount||'?') + '→' + (cam.mount||'?') + ')');
+    lines.push(' -> アダプター(変換:' + (lens.mount||'?') + '→' + (cam.mount||'?') + (unitNo?',号機:'+unitNo:'') + ')');
   }
   lines.push(' -> ' + camDSLType(cam) + '(' + camAttrs.join(',') + ')');
   return lines.join('\n');
@@ -3522,7 +3540,7 @@ function parseDSL(text){
     return {type: m[1].trim(), attrs: attrs};
   }
   /* 「->」（ラベルなし）と「=信号名=>」（ラベルあり配線）の両方に対応してノード列とエッジ列に分割 */
-  return chainsRaw.map(function(chainStr){
+  var chains = chainsRaw.map(function(chainStr){
     var parts = chainStr.split(/(->|=[^=]+=>)/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length; });
     var nodes = [], edgeLabels = [];
     for (var i=0;i<parts.length;i++){
@@ -3536,6 +3554,19 @@ function parseDSL(text){
     }
     return {nodes: nodes, edgeLabels: edgeLabels};
   }).filter(function(c){ return c.nodes.length; });
+
+  /* 単独行（1ノードのみのチェーン）が、他のチェーンの中にも同じノードとして登場する場合は
+     二重に箱が描かれるのを防ぐため、その単独行は除外する（「接続を追加」で後から繋いだ時のため） */
+  var inMultiNodeChain = {};
+  chains.forEach(function(c){
+    if (c.nodes.length > 1) c.nodes.forEach(function(n){ inMultiNodeChain[dslNodeKey(n)] = true; });
+  });
+  return chains.filter(function(c){
+    return !(c.nodes.length === 1 && inMultiNodeChain[dslNodeKey(c.nodes[0])]);
+  });
+}
+function dslNodeKey(n){
+  return n.type + '(' + n.attrs.map(function(a){ return a.k ? a.k+':'+a.v : a.v; }).join(',') + ')';
 }
 
 /* 種別 → ノード色 */
@@ -3568,66 +3599,157 @@ function signalColor(label){
   return '#4A5670'; /* 未知の信号名：濃いグレーで区別だけする */
 }
 
-function renderDSLDiagram(chains){
-  var NODE_W = 200, ATTR_LINE_H = 15, HEAD_H = 30, PAD = 10, GAP_X = 64, GAP_Y = 26, MAX_ATTRS = 5;
-  var rows = chains.map(function(chain){
-    var maxAttrs = 0;
-    chain.nodes.forEach(function(n){ maxAttrs = Math.max(maxAttrs, Math.min(n.attrs.length, MAX_ATTRS)); });
-    var h = HEAD_H + (maxAttrs ? maxAttrs*ATTR_LINE_H + PAD : PAD);
-    return {chain: chain, h: h};
-  });
-  var totalW = Math.max.apply(null, rows.map(function(r){ return r.chain.nodes.length * NODE_W + (r.chain.nodes.length-1) * GAP_X; })) + 20;
-  var totalH = rows.reduce(function(a,r){ return a + r.h + GAP_Y; }, 10);
-
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">';
-  var defs = '<marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6C7A99"/></marker>';
-  var usedColors = {};
-
-  var y = 10;
-  rows.forEach(function(row){
-    var x = 10;
-    row.chain.nodes.forEach(function(n, i){
-      var color = dslNodeColor(n.type);
-      var attrs = n.attrs.slice(0, MAX_ATTRS);
-      /* ノード枠 */
-      svg += '<rect x="'+x+'" y="'+y+'" width="'+NODE_W+'" height="'+row.h+'" rx="10" fill="#FFFFFF" stroke="'+color+'" stroke-width="1.8"/>';
-      /* ヘッダー帯 */
-      svg += '<path d="M'+x+' '+(y+10)+' a10 10 0 0 1 10-10 h'+(NODE_W-20)+' a10 10 0 0 1 10 10 v'+(HEAD_H-10)+' h-'+NODE_W+' z" fill="'+color+'"/>';
-      svg += '<text x="'+(x+NODE_W/2)+'" y="'+(y+20)+'" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF" font-family="Zen Kaku Gothic New, sans-serif">'+escXml(n.type)+'</text>';
-      /* 属性 */
-      attrs.forEach(function(a, j){
-        var label = a.k ? a.k + ': ' + a.v : a.v;
-        if (label.length > 26) label = label.slice(0,25) + '…';
-        svg += '<text x="'+(x+10)+'" y="'+(y+HEAD_H+14+j*ATTR_LINE_H)+'" font-size="10" fill="#4A5670">'+escXml(label)+'</text>';
-      });
-      if (n.attrs.length > MAX_ATTRS){
-        svg += '<text x="'+(x+10)+'" y="'+(y+HEAD_H+14+MAX_ATTRS*ATTR_LINE_H)+'" font-size="9" fill="#9AA8C4">…ほか'+(n.attrs.length-MAX_ATTRS)+'項目</text>';
-      }
-      /* 矢印（信号名があれば配線色・ラベル付き） */
-      if (i < row.chain.nodes.length - 1){
-        var ay = y + row.h/2;
-        var edgeLabel = row.chain.edgeLabels[i] || '';
-        var col = signalColor(edgeLabel) || '#6C7A99';
-        var markerId = 'arrow-default';
-        if (edgeLabel){
-          markerId = 'arrow-' + col.replace('#','');
-          if (!usedColors[col]){
-            usedColors[col] = true;
-            defs += '<marker id="'+markerId+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="'+col+'"/></marker>';
-          }
-        }
-        svg += '<line x1="'+(x+NODE_W)+'" y1="'+ay+'" x2="'+(x+NODE_W+GAP_X-8)+'" y2="'+ay+'" stroke="'+col+'" stroke-width="'+(edgeLabel?2.4:1.8)+'" marker-end="url(#'+markerId+')"/>';
-        if (edgeLabel){
-          svg += '<text x="'+(x+NODE_W+GAP_X/2)+'" y="'+(ay-6)+'" text-anchor="middle" font-size="9" fill="'+col+'" font-weight="700">'+escXml(edgeLabel)+'</text>';
-        }
-      }
-      x += NODE_W + GAP_X;
+/* 全行を1つのグラフとして統合：同じノード（同じ型式・属性）は1つの箱にまとめ、
+   そこから何本でも矢印を出し入れできるようにする */
+function buildDSLGraph(chains){
+  var nodesMap = {}; /* key -> {type, attrs, key} */
+  var edges = [];    /* {from, to, label} */
+  chains.forEach(function(c){
+    c.nodes.forEach(function(n){
+      var k = dslNodeKey(n);
+      if (!nodesMap[k]) nodesMap[k] = { type: n.type, attrs: n.attrs, key: k };
     });
-    y += row.h + GAP_Y;
+    for (var i=0; i<c.nodes.length-1; i++){
+      edges.push({ from: dslNodeKey(c.nodes[i]), to: dslNodeKey(c.nodes[i+1]), label: c.edgeLabels[i] || '' });
+    }
   });
-  svg = svg.replace('<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">',
-    '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace"><defs>'+defs+'</defs>');
-  svg += '</svg>';
+  return { nodesMap: nodesMap, edges: edges };
+}
+
+/* トポロジカル順で列（ランク）を決める。循環がある場合も止まらないようガードする */
+function computeDSLRanks(nodesMap, edges){
+  var keys = Object.keys(nodesMap);
+  var adj = {}, indeg = {};
+  keys.forEach(function(k){ adj[k] = []; indeg[k] = 0; });
+  edges.forEach(function(e){
+    if (adj[e.from] && indeg[e.to] !== undefined){ adj[e.from].push(e.to); indeg[e.to]++; }
+  });
+  var rank = {}; keys.forEach(function(k){ rank[k] = 0; });
+  var indegWork = Object.assign({}, indeg);
+  var queue = keys.filter(function(k){ return indeg[k] === 0; });
+  var processed = {}, guard = 0;
+  while (queue.length && guard < keys.length * 4 + 10){
+    guard++;
+    var k = queue.shift();
+    if (processed[k]) continue;
+    processed[k] = true;
+    adj[k].forEach(function(nb){
+      rank[nb] = Math.max(rank[nb], rank[k] + 1);
+      indegWork[nb]--;
+      if (indegWork[nb] <= 0 && !processed[nb]) queue.push(nb);
+    });
+  }
+  return rank;
+}
+
+function renderDSLDiagram(chains){
+  var NODE_W = 200, ATTR_LINE_H = 15, HEAD_H = 30, PAD = 10, COL_GAP = 90, ROW_GAP = 34, MAX_ATTRS = 5;
+
+  var graph = buildDSLGraph(chains);
+  var nodesMap = graph.nodesMap, edges = graph.edges;
+  var keys = Object.keys(nodesMap);
+  var rank = computeDSLRanks(nodesMap, edges);
+
+  function nodeH(n){
+    var cnt = Math.min(n.attrs.length, MAX_ATTRS);
+    return HEAD_H + (cnt ? cnt*ATTR_LINE_H + PAD : PAD);
+  }
+
+  var maxRank = keys.reduce(function(m,k){ return Math.max(m, rank[k]); }, 0);
+  var cols = []; for (var i=0;i<=maxRank;i++) cols.push([]);
+  keys.forEach(function(k){ cols[rank[k]].push(k); });
+
+  var colX = []; var x = 10;
+  for (var c=0;c<cols.length;c++){ colX.push(x); x += NODE_W + COL_GAP; }
+  var totalW = x - COL_GAP + 10;
+
+  var pos = {};
+  var maxColBottom = 10;
+  cols.forEach(function(colKeys, ci){
+    var y = 10;
+    colKeys.forEach(function(k){
+      var h = nodeH(nodesMap[k]);
+      pos[k] = { x: colX[ci], y: y, w: NODE_W, h: h };
+      y += h + ROW_GAP;
+    });
+    maxColBottom = Math.max(maxColBottom, y);
+  });
+  var totalH = maxColBottom + 10;
+
+  /* 同じノードから出る／入る矢印が重ならないよう、辺ごとにアンカー位置を上下に分散させる */
+  var outByNode = {}, inByNode = {};
+  edges.forEach(function(e){
+    (outByNode[e.from] = outByNode[e.from] || []).push(e);
+    (inByNode[e.to] = inByNode[e.to] || []).push(e);
+  });
+  function anchorY(list, e, boxPos){
+    var idx = list.indexOf(e), n = list.length;
+    var frac = (idx + 1) / (n + 1);
+    return boxPos.y + boxPos.h * frac;
+  }
+
+  var defs = '';
+  var usedColors = {};
+  var edgesSvg = '';
+  edges.forEach(function(e){
+    if (!pos[e.from] || !pos[e.to]) return;
+    var fromPos = pos[e.from], toPos = pos[e.to];
+    var sy = anchorY(outByNode[e.from], e, fromPos);
+    var ty = anchorY(inByNode[e.to], e, toPos);
+    var forward = toPos.x > fromPos.x;
+    var sx = forward ? fromPos.x + fromPos.w : fromPos.x;
+    var tx = forward ? toPos.x : toPos.x + toPos.w;
+
+    var col = e.label ? (signalColor(e.label) || '#6C7A99') : '#6C7A99';
+    var markerId = 'arrow-default';
+    if (!usedColors[col]){
+      usedColors[col] = true;
+      markerId = 'arrow-' + col.replace('#','');
+      defs += '<marker id="'+markerId+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="'+col+'"/></marker>';
+    } else {
+      markerId = 'arrow-' + col.replace('#','');
+    }
+
+    var pathD, labelX, labelY;
+    if (forward && Math.abs(toPos.x - fromPos.x) > 1){
+      /* 前方向：ゆるいS字ベジェで接続 */
+      var mx = (sx + tx) / 2;
+      pathD = 'M'+sx+' '+sy+' C '+mx+' '+sy+', '+mx+' '+ty+', '+tx+' '+ty;
+      labelX = mx; labelY = Math.min(sy, ty) - 6;
+    } else {
+      /* 同じ列・後方向（フィードバック等）：外側に迂回するループで描く */
+      var loopOut = 34;
+      var sx2 = fromPos.x + fromPos.w, tx2 = toPos.x + toPos.w;
+      var farX = Math.max(sx2, tx2) + loopOut;
+      pathD = 'M'+sx2+' '+sy+' C '+farX+' '+sy+', '+farX+' '+ty+', '+tx2+' '+ty;
+      labelX = farX; labelY = (sy+ty)/2;
+    }
+    edgesSvg += '<path d="'+pathD+'" fill="none" stroke="'+col+'" stroke-width="'+(e.label?2.4:1.8)+'" marker-end="url(#'+markerId+')"/>';
+    if (e.label){
+      edgesSvg += '<text x="'+labelX+'" y="'+labelY+'" text-anchor="middle" font-size="9" fill="'+col+'" font-weight="700">'+escXml(e.label)+'</text>';
+    }
+  });
+
+  var nodesSvg = '';
+  keys.forEach(function(k){
+    var n = nodesMap[k], p = pos[k];
+    var color = dslNodeColor(n.type);
+    var attrs = n.attrs.slice(0, MAX_ATTRS);
+    nodesSvg += '<rect x="'+p.x+'" y="'+p.y+'" width="'+p.w+'" height="'+p.h+'" rx="10" fill="#FFFFFF" stroke="'+color+'" stroke-width="1.8"/>';
+    nodesSvg += '<path d="M'+p.x+' '+(p.y+10)+' a10 10 0 0 1 10-10 h'+(p.w-20)+' a10 10 0 0 1 10 10 v'+(HEAD_H-10)+' h-'+p.w+' z" fill="'+color+'"/>';
+    nodesSvg += '<text x="'+(p.x+p.w/2)+'" y="'+(p.y+20)+'" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF" font-family="Zen Kaku Gothic New, sans-serif">'+escXml(n.type)+'</text>';
+    attrs.forEach(function(a, j){
+      var label = a.k ? a.k + ': ' + a.v : a.v;
+      if (label.length > 26) label = label.slice(0,25) + '…';
+      nodesSvg += '<text x="'+(p.x+10)+'" y="'+(p.y+HEAD_H+14+j*ATTR_LINE_H)+'" font-size="10" fill="#4A5670">'+escXml(label)+'</text>';
+    });
+    if (n.attrs.length > MAX_ATTRS){
+      nodesSvg += '<text x="'+(p.x+10)+'" y="'+(p.y+HEAD_H+14+MAX_ATTRS*ATTR_LINE_H)+'" font-size="9" fill="#9AA8C4">…ほか'+(n.attrs.length-MAX_ATTRS)+'項目</text>';
+    }
+  });
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+totalW+'" height="'+totalH+'" font-family="JetBrains Mono, monospace">'
+    + '<defs>'+defs+'</defs>' + edgesSvg + nodesSvg + '</svg>';
   return svg;
 }
 
@@ -3642,16 +3764,62 @@ document.getElementById('dslRenderBtn').addEventListener('click', function(){
     lastDiagramSvg = '';
     empty.textContent = 'DSLを解釈できませんでした。1行に1つの部品またはチェーン（A(...) -> B(...)）を記述してください。';
     empty.classList.remove('hidden');
+    refreshDSLConnOptions();
     return;
   }
   lastDiagramSvg = renderDSLDiagram(chains);
   host.innerHTML = lastDiagramSvg;
   empty.classList.add('hidden');
+  refreshDSLConnOptions();
 });
 
 document.getElementById('dslDownloadSvgBtn').addEventListener('click', function(){
   if (!lastDiagramSvg){ showToast('先に「構成図を描画」を押してください。'); return; }
   downloadBlob(new Blob([lastDiagramSvg], {type:'image/svg+xml'}), '構成図.svg');
+});
+
+/* ---- 接続を追加（自動接続の限界を、手動2点接続で補う） ---- */
+function refreshDSLConnOptions(){
+  var chains = parseDSL(document.getElementById('dslInput').value);
+  var seen = {}, options = [];
+  chains.forEach(function(c){
+    c.nodes.forEach(function(n){
+      var key = dslNodeKey(n);
+      if (!seen[key]){
+        seen[key] = true;
+        var unitAttr = n.attrs.find(function(a){ return a.k === '号機'; });
+        var mainAttr = n.attrs.length ? (n.attrs[0].v || n.attrs[0].k) : '';
+        var sub = mainAttr + (unitAttr ? '（' + unitAttr.v + '号機）' : '');
+        options.push({ key: key, label: n.type + (sub ? '：' + sub : '') });
+      }
+    });
+  });
+  var html = options.length
+    ? options.map(function(o){ return '<option value="'+escXml(o.key)+'">'+escXml(o.label)+'</option>'; }).join('')
+    : '<option value="">（先にDSLを入力・挿入してください）</option>';
+  document.getElementById('dslConnFrom').innerHTML = html;
+  document.getElementById('dslConnTo').innerHTML = html;
+}
+document.getElementById('dslConnRefreshBtn').addEventListener('click', refreshDSLConnOptions);
+
+document.getElementById('dslConnAddBtn').addEventListener('click', function(){
+  var from = document.getElementById('dslConnFrom').value;
+  var to = document.getElementById('dslConnTo').value;
+  var signal = document.getElementById('dslConnSignal').value.trim();
+  if (!from || !to){
+    showStatus('dslInsertStatus', '接続元・接続先を選択してください（候補が無ければ「候補を更新」を押してください）。', false);
+    return;
+  }
+  if (from === to){
+    showStatus('dslInsertStatus', '接続元と接続先が同じです。別のノードを選んでください。', false);
+    return;
+  }
+  var ta = document.getElementById('dslInput');
+  var arrow = signal ? (' =' + signal + '=> ') : ' -> ';
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + from + arrow + to;
+  document.getElementById('dslConnSignal').value = '';
+  showStatus('dslInsertStatus', '接続を追加しました：' + from + (signal ? '　['+signal+']　→　' : '　→　') + to + '。「構成図を描画」を押して反映してください。', true);
+  refreshDSLConnOptions();
 });
 
 document.getElementById('dslFromPickBtn').addEventListener('click', function(){
@@ -3664,13 +3832,26 @@ document.getElementById('dslFromPickBtn').addEventListener('click', function(){
     showStatus('dslInsertStatus', '選定計算タブでカメラとレンズを選択してから挿入してください（今は未選択です）。', false);
     return;
   }
+  var qty = Math.max(1, Math.round(parseFloat(document.getElementById('pickQty').value) || 1));
+  var blocks = [];
+  for (var i=1;i<=qty;i++){ blocks.push(buildComboDSL(cam, lens, wd, fovX, fovY, qty>1 ? i : 0)); }
   var ta = document.getElementById('dslInput');
-  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + buildComboDSL(cam, lens, wd, fovX, fovY);
-  showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）をDSLに挿入しました。', true);
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + blocks.join('\n');
+  showStatus('dslInsertStatus', '現在の選定（' + cam.model + ' / ' + lens.model + '）を' + qty + '台分挿入しました' + (qty>1?'（号機番号で区別しています）':'') + '。', true);
+  refreshDSLConnOptions();
 });
 
 function buildEstimateChainDSL(items, includePrice){
-  /* 数量ぶんインスタンス展開（カテゴリごとの配列に分類） */
+  /* まず「同一型式が合計何台あるか」を数える（同じ品目のqty>1でも、別品目が同じ型式でも対象） */
+  var totalByLabel = {};
+  items.forEach(function(it){
+    var qty = Math.max(1, Math.round(it.qty || 1));
+    var key = (it.category||'') + '|' + it.label;
+    totalByLabel[key] = (totalByLabel[key] || 0) + qty;
+  });
+  var unitCounter = {};
+
+  /* 数量ぶんインスタンス展開（カテゴリごとの配列に分類）。号機が2台以上ある型式には自動で号機番号を振る */
   var pools = { cam: [], lens: [], light: [], ctrl: [], power: [], other: [] };
   items.forEach(function(it){
     var cat = it.category || 'その他';
@@ -3682,8 +3863,16 @@ function buildEstimateChainDSL(items, includePrice){
     else if (cat === '照明') bucket = 'light';
     else if (cat === 'コントローラー') bucket = 'ctrl';
     else if (cat === '電源') bucket = 'power';
-    var attrs = '型式:' + it.label + (includePrice && it.unitPrice ? ',参考単価:' + it.unitPrice + '円' : '');
-    for (var i = 0; i < qty; i++) pools[bucket].push(typeName + '(' + attrs + ')');
+    var labelKey = cat + '|' + it.label;
+    var needsUnitNo = totalByLabel[labelKey] > 1;
+    for (var i = 0; i < qty; i++){
+      var attrs = '型式:' + it.label + (includePrice && it.unitPrice ? ',参考単価:' + it.unitPrice + '円' : '');
+      if (needsUnitNo){
+        unitCounter[labelKey] = (unitCounter[labelKey] || 0) + 1;
+        attrs += ',号機:' + unitCounter[labelKey];
+      }
+      pools[bucket].push(typeName + '(' + attrs + ')');
+    }
   });
 
   var chains = [];
@@ -3717,7 +3906,8 @@ document.getElementById('dslFromEstimateBtn').addEventListener('click', async fu
   var dsl = buildEstimateChainDSL(items);
   var ta = document.getElementById('dslInput');
   ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + dsl;
-  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）を、レンズ→カメラ／電源→コントローラー→照明の典型パターンで自動接続してDSLに挿入しました。実際と違う場合はテキストを直接編集してください。', true);
+  showStatus('dslInsertStatus', '見積もり全体（' + items.length + '品目）を、レンズ→カメラ／電源→コントローラー→照明の典型パターンで自動接続してDSLに挿入しました。それ以外（コントローラー単独・ケーブルなど）は下の「接続を追加」で繋いでください。', true);
+  refreshDSLConnOptions();
 });
 
 /* ===================== 初期化 ===================== */
